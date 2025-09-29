@@ -90,7 +90,8 @@ void main() {
 
 	uint materialID = gbufferData0.y;
 
-	vec3 albedo = sRGBtoLinear(loadAlbedo(screenTexel));
+	vec3 albedoRaw = loadAlbedo(screenTexel);
+	vec3 albedo = sRGBtoLinear(albedoRaw);
 
 	float dither = BlueNoiseTemporal(screenTexel);
 
@@ -342,6 +343,47 @@ void main() {
 			lightmap.x = CalculateBlocklightFalloff(lightmap.x);
 			sceneOut += lightmap.x * (ao * oms(lightmap.x) + lightmap.x) * blocklightColor;
 		#endif
+
+		#ifdef HARDCODED_ORE_EMISSION
+
+			float albedoLuminance = length(albedo);
+			float saturation = maxOf(albedoRaw) - minOf(albedoRaw);
+            float brightness = maxOf(albedoRaw);
+
+			if (materialID == 35u) {
+				// Ordinary ore emission
+
+
+                float isOre = (step(0.09f, saturation) + step(0.75f, brightness));
+
+				sceneOut += HARDCODED_ORE_EMISSION_BRIGHTNESS * vec3(cube(albedoRaw)) * isOre;
+
+                /*
+                We use saturation to judge whether the pixel is ore,
+                emerald include a low saturation color(217, 255, 235),
+                so the threshold was set (255 - 217) / 255.
+                With some of mod ores have a high brightness and low saturation,
+                we added brightness as judgement for the circumstances.
+                */
+
+			} else if (materialID == 36u) {
+				// Nether ore emission
+
+                float isNetherOre = step(maxOf(albedoRaw.gb), albedoRaw.r) *
+									step(0.05f, abs(albedoRaw.g - albedoRaw.b)) + step(0.6, brightness);
+
+				sceneOut += 0.5f * HARDCODED_ORE_EMISSION_BRIGHTNESS * vec3(cube(albedoLuminance)) * isNetherOre;
+
+                /*
+                In the RGB color components of the red-colored rock part of Nether ores in vanilla Minecraft,
+                the blue and green component values are equal,
+                and the color has a hue of 0 (pure red in the HSV/HSL color model).
+                Same as above, we use brightness as addtional judgement for some mod ores.
+                */
+
+			}
+
+        #endif
 
 		// Handheld light
 		#ifdef HANDHELD_LIGHTING

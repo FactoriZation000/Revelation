@@ -14,4 +14,6 @@ layout (std430, binding = 0) buffer GlobalData {
     LightData light;
     ExposureData exposure;
     float prevWorldTime;
+    float centerDepthSmooth;
+    float prevCenterDepth;
 } global;

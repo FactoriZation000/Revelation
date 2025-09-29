@@ -1,0 +1,400 @@
+/*
+--------------------------------------------------------------------------------
+
+	Copyright (C) 2025 Graphics Park
+	Apache License 2.0
+
+    Pass: Main -- Generate bokeh
+
+    Reference:[1]Guillaume Abadie, 2018, A Life of a bokeh, https://epicgames.ent.box.com/s/s86j70iamxvsuu6j35pilypficznec04
+              [2]Michael Potmesil & Indranil Chakravarty, 1981, Synthetic lmage Generation with a Lens and Aperture Camera Mode, https://ftp.bioeng.auckland.ac.nz/pub/pub/jtur044/references/virtual%20environments/p85-potmesil.pdf
+              [3]Jorge Jimenez, 2014, Next Generation Post Processing in Call of Duty Advanced Warfare, https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/
+              [4]John L. Smith, 1996, Implementing Median Filters in XC4000E FPGAS
+
+    Thank Yongxin Mo for optimizing and modifying the code.
+
+--------------------------------------------------------------------------------
+*/
+
+#define DOF_TILE_SIZE 8
+layout (local_size_x = 16, local_size_y = 16) in;
+
+//======// Image //===============================================================================//
+
+// Input: R: G:backgroundFactor B:foregroundFactor
+layout (r11f_g11f_b10f) restrict uniform image2D presortImage;
+// Input: prefiltered scene RGB
+layout (r11f_g11f_b10f) restrict uniform image2D prefilterImage;
+// Input: R:neighborhoodMinDepth G:neighborhoodMaxCOC B:neighborhoodMinCOC
+layout (r11f_g11f_b10f) restrict uniform image2D tileDataNeighborhoodImage;
+// Input: R:minDepth G:maxCOC B:minCOC A:originalCOC
+layout (rgba16f) restrict uniform image2D tileDataImage;
+
+// Output: RGB:color A:alpha
+layout (rgba16f) restrict uniform image2D mainDataImage;
+// Output: RGB:color
+layout (rgba16f) restrict uniform image2D tempImage;
+//======// Utility //=============================================================================//
+
+#include "/lib/Utility.glsl"
+#include "/lib/universal/Uniform.glsl"
+#include "/lib/universal/Transform.glsl"
+#include "/lib/universal/Random.glsl"
+
+#include "/program/post/dof/DepthOfFieldCommon.glsl"
+#include "/lib/universal/SSBO.glsl"
+//======// Uniform //=============================================================================//
+
+// uniform float centerDepthSmooth;
+uniform sampler2D prefilter;
+uniform sampler2D presort;
+//======// Function //============================================================================//
+
+
+// From Alpha-Piscium
+float intersectCOC(vec2 p, float radius) {
+    float texelDistSq = dot(p, p);
+    return smoothstep(sqr(radius + 0.01), sqr(radius - 0.01), texelDistSq);
+}
+
+float intersectCOC2(vec2 p, float radius) {
+    float q = abs(p.y) * (2.0 / radius);
+    float r = (abs(p.y) + abs(p.x) * sqrt(3.0)) / radius;
+    float s = (abs(p.y) - abs(p.x) * sqrt(3.0)) / radius;
+
+    return smoothstep(2.01, 1.99, max(abs(q), max(abs(r), abs(s))));
+}
+
+vec2 ApplyCatEyeEffect(vec2 sampleUV, vec2 screenCenter, vec2 baseOffset)
+{
+    // We assume that the center of the screen is the optical axis.
+    vec2 centerToPixel = sampleUV - screenCenter;
+
+    float normalizedRadius = length(centerToPixel) / length(vec2(0.5f));
+
+    vec2 radialDir = centerToPixel / max(length(centerToPixel), 1e-6);
+    vec2 tangentDir  = vec2(-radialDir.y, radialDir.x);// radialDir * mat2(cos(0.5 * PI), -sin(0.5 * PI), sin(0.5 * PI), cos(0.5 * PI));
+
+    // The farther away from the optical axis, the larger the distortion factor.
+    float distanceFactor = smoothstep(0.20f, 0.80f, clamp(normalizedRadius, 0.0f, 1.0f));
+
+    float radialScale   = mix(1.0f, DOF_CAT_EYE_EFFECT_RADIAL_STRENGTH, distanceFactor);
+    float tangentScale  = mix(1.0f, DOF_CAT_EYE_EFFECT_TANGENT_STRENGTH, distanceFactor);
+
+    // Apply the radial distortion and the tangent distortion.
+    vec2 shapedOffset = radialDir * radialScale * baseOffset.x
+                      + tangentDir * tangentScale * baseOffset.y;
+
+    float radialDisplacement = mix(0.0f, 0.6f, distanceFactor);
+    // // Check whether distorted sampling points is legal(in the unit circle).
+    // float mask = clamp(1.0f - max(0.0f, length(shapedOffset + radialDisplacement * radialDir) - 1.0f) * 6.0f, 0.0f, 1.0f);
+
+    return shapedOffset;
+}
+
+//======// Main //================================================================================//
+
+#ifndef DOF_HEXAGONAL_BOKEH
+void main()
+{
+    global.prevCenterDepth = global.centerDepthSmooth;
+
+    float alpha = 0.0f;
+	vec3 color = vec3(0.0f);
+
+    ivec2 texel = ivec2(gl_GlobalInvocationID.xy);
+    vec2 uv = texelToUv(texel);
+
+    vec2 maxMinCOC = imageLoad(tileDataNeighborhoodImage, texel / 2).yz;
+    vec3 centerColor = imageLoad(prefilterImage, texel).rgb;
+    vec3 centerPresort = imageLoad(presortImage, texel).rgb;
+
+    // float originalCOC = imageLoad(tileDataImage, texel / 2).w;
+
+    vec2 colorAberrationOffset = vec2(distance(uv, vec2(0.5f)) * clamp(maxMinCOC.x * DOF_COLOR_ABERRATION_STRENGTH, 0.0f, DOF_COLOR_ABERRATION_MAX_OFFSET));
+
+    if (maxMinCOC.x < 1.0f)// Early exit
+    {
+        alpha = 1.0f;
+        #ifdef DOF_COLOR_ABERRATION
+            color.r += textureLod(prefilter, uv + colorAberrationOffset, 0.0f).r;
+        	color.g += textureLod(prefilter, uv, 0.0f).g;
+        	color.b += textureLod(prefilter, uv - colorAberrationOffset, 0.0f).b;
+        #else
+            // color += texelFetch(prefilter, uvToTexel(sampleUV), 0).rgb;
+            color = centerColor;
+        #endif
+	}
+    else if (abs(maxMinCOC.x - maxMinCOC.y) < 1.0f)// Cheap
+    {
+        color = vec3(0.0f);
+        uint ringCount = uint(clamp(ceil(sqrt(maxMinCOC.x) * DOF_RING_COUNT), 1, DOF_RING_COUNT));// Use sqrt() to make sure increasing evenly
+        const uint ringSampleCount[] = {1u, 9u, 25u, 49u}; // 4n(n-1)+1
+        vec2 ringScale = float(ringCount) / float(DOF_RING_COUNT) * maxMinCOC.x * viewPixelSize * 0.5f;
+
+
+        // Sample from outside to inside.Reference:[1]
+        for (uint j = ringCount; j > 0; --j)
+        {
+            uint startIdx = ringSampleCount[j - 1];
+            uint endIdx = ringSampleCount[j];
+            float ringRadius = float(j) / float(ringCount);
+
+            // Rotate the sample points per ring to reduce artifacts
+            float noise = TemporalIGN(texel, j, int(frameTime) % 64) * TAU * rcp(ringSampleCount[j]);
+            mat2 rot = mat2(cos(noise), -sin(noise), sin(noise), cos(noise));
+
+
+            for (uint i = startIdx; i < endIdx; ++i)
+            {
+                vec2 offset = precomputedOffsets[i] * ringRadius * rot;
+                #ifdef DOF_CAT_EYE_EFFECT
+                    offset = ApplyCatEyeEffect(uv, vec2(0.5f), offset);
+                #endif
+                vec2 sampleUV = uv + ringScale * offset;
+
+                #ifdef DOF_COLOR_ABERRATION
+                    color.r += textureLod(prefilter, sampleUV + colorAberrationOffset, 0.0f).r;
+        	        color.g += textureLod(prefilter, sampleUV, 0.0f).g;
+        	        color.b += textureLod(prefilter, sampleUV - colorAberrationOffset, 0.0f).b;
+                #else
+                    // color += texelFetch(prefilter, uvToTexel(sampleUV), 0).rgb;
+                    color += textureLod(prefilter, sampleUV, 0.0f).rgb;
+                #endif
+                    // It seems that bilinear sampling can get a better result compared to the point sampling which was mentioned in COD's PPT.
+            }
+        }
+
+        // color += texelFetch(prefilter, uvToTexel(uv), 0).rgb;
+        color += textureLod(prefilter, uv, 0.0f).rgb;
+
+        color /= float(ringSampleCount[ringCount]);
+        alpha = 0.0f;
+    }
+    else// Expensive
+    {
+        // Center data
+        float centerCOC = imageLoad(tileDataImage, texel / 2).w;
+        float centerBackgroundWeight = centerPresort.g;
+        float centerForegroundWeight = centerPresort.b;
+
+        // Initialize the background and foreground
+        vec4 background = centerBackgroundWeight * vec4(centerColor, 1.0f);
+        vec4 foreground = centerForegroundWeight * vec4(centerColor, 1.0f);
+
+        uint ringCount = uint(clamp(ceil(sqrt(maxMinCOC.x) * DOF_RING_COUNT), 1, DOF_RING_COUNT));
+        const uint ringSampleCount[] = {1u, 9u, 25u, 49u};
+        vec2 ringScale = float(ringCount) / float(DOF_RING_COUNT) * maxMinCOC.x * viewPixelSize * 0.5f;
+        float spreadScale = float(ringCount) / maxMinCOC.x;
+
+        for (uint j = ringCount; j > 0; --j)
+        {
+            uint startIdx = ringSampleCount[j - 1];
+            uint endIdx = ringSampleCount[j];
+            float ringRadius = float(j) / float(ringCount);
+
+            float noise = TemporalIGN(texel, j, int(frameTime) % 64) * TAU * rcp(ringSampleCount[j]);
+            mat2 rot = mat2(cos(noise), -sin(noise), sin(noise), cos(noise));
+
+            for (uint i = startIdx; i < endIdx; ++i)
+            {
+
+                vec2 offset = precomputedOffsets[i] * ringRadius * rot;
+                #ifdef DOF_CAT_EYE_EFFECT
+                    offset = ApplyCatEyeEffect(uv, vec2(0.5f), offset);
+                #endif
+                vec2 sampleUV = uv + ringScale * offset;
+
+                vec3 sampleColor = vec3(0.0f);
+                #ifdef DOF_COLOR_ABERRATION
+                    sampleColor.r += textureLod(prefilter, sampleUV + colorAberrationOffset, 0.0f).r;
+        	        sampleColor.g += textureLod(prefilter, sampleUV, 0.0f).g;
+        	        sampleColor.b += textureLod(prefilter, sampleUV - colorAberrationOffset, 0.0f).b;
+                #else
+                    sampleColor += textureLod(prefilter, sampleUV, 0.0f).rgb;
+                #endif
+                vec3 presort = imageLoad(presortImage, uvToTexel(sampleUV)).rgb;
+                float sampleCOC = imageLoad(tileDataImage, uvToTexel(sampleUV / 2)).w;
+
+                float spreadCmp = SpreadCmp(j, sampleCOC, spreadScale);
+
+                // Weights
+                // FKU black tiles
+                // Why some tiles have so small value of backgroundWeight?
+                float backgroundWeight = max(1e-6, presort.g * spreadCmp);
+                float foregroundWeight = max(1e-6, presort.b * spreadCmp);
+
+                // Accumulate the background and foreground
+                background += backgroundWeight * vec4(sampleColor, 1.0f);
+                foreground += foregroundWeight * vec4(sampleColor, 1.0f);
+            }
+        }
+
+        // Normalization
+        background.rgb *= SafeRcp(background.a);
+        foreground.rgb *= SafeRcp(foreground.a);
+
+        const float growForegroundSolid = 2.0f;
+        float totalSamples = float(ringSampleCount[ringCount]);
+        alpha = saturate(SafeRcp(totalSamples) * SafeRcp(SampleAlpha(maxMinCOC.x)) * foreground.a);
+        color = mix(background.rgb, foreground.rgb, alpha);
+
+    }
+
+    vec3 originalImage = texture(colortex0, texelToUv(texel * 2)).rgb;
+    imageStore(mainDataImage, texel, vec4(color, alpha));
+    imageStore(tempImage, texel, vec4(originalImage, 0.0f));
+}
+#else
+void main()
+{
+    global.prevCenterDepth = global.centerDepthSmooth;
+
+    float alpha = 0.0f;
+	vec3 color = vec3(0.0f);
+
+    ivec2 texel = ivec2(gl_GlobalInvocationID.xy);
+    vec2 uv = texelToUv(texel);
+
+    vec2 maxMinCOC = imageLoad(tileDataNeighborhoodImage, texel / 2).yz;
+    vec3 centerColor = imageLoad(prefilterImage, texel).rgb;
+    vec3 centerPresort = imageLoad(presortImage, texel).rgb;
+
+    // float originalCOC = imageLoad(tileDataImage, texel / 2).w;
+
+    vec2 colorAberrationOffset = vec2(distance(uv, vec2(0.5f)) * clamp(maxMinCOC.x * DOF_COLOR_ABERRATION_STRENGTH, 0.0f, DOF_COLOR_ABERRATION_MAX_OFFSET));
+
+    if (maxMinCOC.x < 1.0f)// Early exit
+    {
+        alpha = 1.0f;
+        #ifdef DOF_COLOR_ABERRATION
+            color.r += textureLod(prefilter, uv + colorAberrationOffset, 0.0f).r;
+        	color.g += textureLod(prefilter, uv, 0.0f).g;
+        	color.b += textureLod(prefilter, uv - colorAberrationOffset, 0.0f).b;
+        #else
+            // color += texelFetch(prefilter, uvToTexel(sampleUV), 0).rgb;
+            color = centerColor;
+        #endif
+	}
+    else if (abs(maxMinCOC.x - maxMinCOC.y) < 1.0f)// Cheap
+    {
+        color = vec3(0.0f);
+        uint ringCount = uint(clamp(ceil(sqrt(maxMinCOC.x) * DOF_RING_COUNT), 1, DOF_RING_COUNT));// Use sqrt() to make sure increasing evenly
+        //const uint ringSampleCount[] = {1u, 13u, 37u, 61u};
+        const uint ringSampleCount[] = {1u, 7u, 19u, 37u};
+        vec2 ringScale = maxMinCOC.x * viewPixelSize * 0.5f;
+
+        // Sample from outside to inside.Reference:[1]
+        for (uint j = ringCount; j > 0; --j)
+        {
+            uint startIdx = ringSampleCount[j - 1];
+            uint endIdx = ringSampleCount[j];
+
+            // Rotate the sample points per ring to reduce artifacts
+            float noise = TemporalIGN(texel, j, int(frameTime) % 64) * TAU * rcp(ringSampleCount[j]);
+            mat2 rot = mat2(cos(noise), -sin(noise), sin(noise), cos(noise));
+
+            for (uint i = startIdx; i < endIdx; ++i)
+            {
+                // vec2 noise = vec2(BlueNoiseTemporal(texel.xy + ivec2(i,j))) * 0.125f * (float(j) * rcp(float(ringCount)));
+                vec2 offset = hexPrecomputedOffsets[i] * rot;
+
+                #ifdef DOF_CAT_EYE_EFFECT
+                    offset = ApplyCatEyeEffect(uv, vec2(0.5f), offset);
+                #endif
+
+                vec2 sampleUV = uv + ringScale * offset;
+
+                #ifdef DOF_COLOR_ABERRATION
+                    color.r += textureLod(prefilter, sampleUV + colorAberrationOffset, 0.0f).r;
+        	        color.g += textureLod(prefilter, sampleUV, 0.0f).g;
+        	        color.b += textureLod(prefilter, sampleUV - colorAberrationOffset, 0.0f).b;
+                #else
+                    // color += texelFetch(prefilter, uvToTexel(sampleUV), 0).rgb;
+                    color += textureLod(prefilter, sampleUV, 0.0f).rgb;
+                #endif
+                    // It seems that bilinear sampling can get a better result compared to the point sampling which was mentioned in COD's PPT.
+            }
+        }
+
+        // color += texelFetch(prefilter, uvToTexel(uv), 0).rgb;
+        color += textureLod(prefilter, uv, 0.0f).rgb;
+
+        color /= float(ringSampleCount[ringCount]);
+        alpha = 0.0f;
+    }
+    else// Expensive
+    {
+        // Center data
+        float centerCOC = imageLoad(tileDataImage, texel / 2).w;
+        float centerBackgroundWeight = centerPresort.g;
+        float centerForegroundWeight = centerPresort.b;
+
+        // Initialize the background and foreground
+        vec4 background = centerBackgroundWeight * vec4(centerColor, 1.0f);
+        vec4 foreground = centerForegroundWeight * vec4(centerColor, 1.0f);
+
+        uint ringCount = uint(clamp(ceil(sqrt(maxMinCOC.x) * DOF_RING_COUNT), 1, DOF_RING_COUNT));
+        //const uint ringSampleCount[] = {1u, 13u, 37u, 61u};
+        const uint ringSampleCount[] = {1u, 7u, 19u, 37u};
+        vec2 ringScale = maxMinCOC.x * viewPixelSize * 0.5f;
+        float spreadScale = float(ringCount) / maxMinCOC.x;
+
+        for (uint j = ringCount; j > 0; --j)
+        {
+            uint startIdx = ringSampleCount[j - 1];
+            uint endIdx = ringSampleCount[j];
+
+            float noise = TemporalIGN(texel, j, int(frameTime) % 64) * TAU * rcp(ringSampleCount[j]);
+            mat2 rot = mat2(cos(noise), -sin(noise), sin(noise), cos(noise));
+
+            for (uint i = startIdx; i < endIdx; ++i)
+            {
+
+                vec2 offset = hexPrecomputedOffsets[i] * rot;
+                #ifdef DOF_CAT_EYE_EFFECT
+                    offset = ApplyCatEyeEffect(uv, vec2(0.5f), offset);
+                #endif
+                vec2 sampleUV = uv + ringScale * offset;
+
+                vec3 sampleColor = vec3(0.0f);
+                #ifdef DOF_COLOR_ABERRATION
+                    sampleColor.r += textureLod(prefilter, sampleUV + colorAberrationOffset, 0.0f).r;
+        	        sampleColor.g += textureLod(prefilter, sampleUV, 0.0f).g;
+        	        sampleColor.b += textureLod(prefilter, sampleUV - colorAberrationOffset, 0.0f).b;
+                #else
+                    sampleColor += textureLod(prefilter, sampleUV, 0.0f).rgb;
+                #endif
+                vec3 presort = imageLoad(presortImage, uvToTexel(sampleUV)).rgb;
+                float sampleCOC = imageLoad(tileDataImage, uvToTexel(sampleUV / 2)).w;
+
+                float spreadCmp = SpreadCmp(j, sampleCOC, spreadScale);
+
+                // Weights
+                // FKU black tiles
+                // Why some tiles have so small value of backgroundWeight?
+                float backgroundWeight = max(1e-6, presort.g * spreadCmp);
+                float foregroundWeight = max(1e-6, presort.b * spreadCmp);
+
+                // Accumulate the background and foreground
+                background += backgroundWeight * vec4(sampleColor, 1.0f);
+                foreground += foregroundWeight * vec4(sampleColor, 1.0f);
+            }
+        }
+
+        // Normalization
+        background.rgb *= SafeRcp(background.a);
+        foreground.rgb *= SafeRcp(foreground.a);
+
+        const float growForegroundSolid = 2.0f;
+        float totalSamples = float(ringSampleCount[ringCount]);
+        alpha = saturate(SafeRcp(totalSamples) * SafeRcp(SampleAlpha(maxMinCOC.x)) * foreground.a);
+        color = mix(background.rgb, foreground.rgb, alpha);
+
+    }
+
+    vec3 originalImage = texture(colortex0, texelToUv(texel * 2)).rgb;
+    imageStore(mainDataImage, texel, vec4(color, alpha));
+    imageStore(tempImage, texel, vec4(originalImage, 0.0f));
+}
+#endif

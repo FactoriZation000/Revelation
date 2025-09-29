@@ -1,0 +1,72 @@
+/*
+--------------------------------------------------------------------------------
+
+	Copyright (C) 2025 Graphics Park
+	Apache License 2.0
+
+    Pass: TilingNeiboorhood
+
+    Reference:[1]Guillaume Abadie, 2018, A Life of a bokeh, https://epicgames.ent.box.com/s/s86j70iamxvsuu6j35pilypficznec04
+              [2]Michael Potmesil & Indranil Chakravarty, 1981, Synthetic lmage Generation with a Lens and Aperture Camera Mode, https://ftp.bioeng.auckland.ac.nz/pub/pub/jtur044/references/virtual%20environments/p85-potmesil.pdf
+              [3]Jorge Jimenez, 2014, Next Generation Post Processing in Call of Duty Advanced Warfare, https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/
+              [4]John L. Smith, 1996, Implementing Median Filters in XC4000E FPGAS
+
+    Thank Yongxin Mo for optimizing and modifying the code.
+
+--------------------------------------------------------------------------------
+*/
+
+#define DOF_TILE_SIZE 8
+layout (local_size_x = DOF_TILE_SIZE, local_size_y = DOF_TILE_SIZE) in;
+shared vec3 tileData;
+
+//======// Image //===============================================================================//
+// Input: R:minDepth G:maxCOC B:minCOC A:originalCOC (from previous pass)
+layout (rgba16f) restrict readonly uniform image2D tileDataImage;
+// Output: R:neighborhoodMinDepth G:neighborhoodMaxCOC B:neighborhoodMinCOC
+layout (r11f_g11f_b10f) restrict writeonly uniform image2D tileDataNeighborhoodImage;
+
+//======// Utility //=============================================================================//
+#include "/lib/Utility.glsl"
+#include "/lib/universal/Uniform.glsl"
+#include "/lib/universal/Transform.glsl"
+
+//======// Main //================================================================================//
+void main() {
+    ivec2 texel = ivec2(gl_GlobalInvocationID.xy);
+
+    if (any(greaterThanEqual(texel, viewSize))) return;
+
+    ivec2 tileCoord = texel / DOF_TILE_SIZE;
+
+    float minDepth = 1.0f;
+    float maxCOC = 0.0f;
+    float minCOC = 1e6;// A large number to find the minimum.
+
+    // Reference:[3]
+    // 3x3 neightborhood filter
+
+    if (gl_LocalInvocationIndex == 0)
+    {
+        for (int dy = -1; dy <= 1; ++dy)
+        {
+            for (int dx = -1; dx <= 1; ++dx)
+            {
+                ivec2 neighborTile = tileCoord + ivec2(dx, dy);
+                ivec2 samplePos = neighborTile * DOF_TILE_SIZE + ivec2(DOF_TILE_SIZE / 2);
+
+            if (all(greaterThanEqual(samplePos, ivec2(0))) && all(lessThan(samplePos, viewSize)))
+            {
+                vec4 data = imageLoad(tileDataImage, samplePos);
+                minDepth  = min(minDepth, data.r);
+                maxCOC    = max(maxCOC, data.g);
+                minCOC    = min(minCOC, data.b);
+            }
+            }
+        }
+        SCALARIZED_LOAD(tileData, vec3(minDepth, maxCOC, minCOC));
+    }
+    barrier();
+
+    imageStore(tileDataNeighborhoodImage, texel, vec4(tileData, 0.0f));
+}

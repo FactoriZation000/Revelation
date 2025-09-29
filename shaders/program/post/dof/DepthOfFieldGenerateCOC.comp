@@ -1,0 +1,111 @@
+/*
+--------------------------------------------------------------------------------
+
+	Copyright (C) 2025 Graphics Park
+	Apache License 2.0
+
+    Pass: GenerateCOC
+
+    Reference:[1]Guillaume Abadie, 2018, A Life of a bokeh, https://epicgames.ent.box.com/s/s86j70iamxvsuu6j35pilypficznec04
+              [2]Michael Potmesil & Indranil Chakravarty, 1981, Synthetic lmage Generation with a Lens and Aperture Camera Mode, https://ftp.bioeng.auckland.ac.nz/pub/pub/jtur044/references/virtual%20environments/p85-potmesil.pdf
+              [3]Jorge Jimenez, 2014, Next Generation Post Processing in Call of Duty Advanced Warfare, https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/
+              [4]John L. Smith, 1996, Implementing Median Filters in XC4000E FPGAS
+
+    Thank Yongxin Mo for optimizing and modifying the code.
+
+--------------------------------------------------------------------------------
+*/
+
+layout (local_size_x = 16, local_size_y = 16) in;
+//======// Image //===============================================================================//
+
+// Output: Half-res COC
+layout (r16f) restrict uniform writeonly image2D CocImage;
+
+//======// Utility //=============================================================================//
+
+#include "/lib/Utility.glsl"
+#include "/lib/universal/Uniform.glsl"
+#include "/lib/universal/Transform.glsl"
+
+#include "/program/post/dof/DepthOfFieldCommon.glsl"
+
+#include "/lib/universal/SSBO.glsl"
+//======// Uniform //=============================================================================//
+
+//uniform float centerDepthSmooth;
+
+//======// Function //============================================================================//
+
+// Reference:[1][2]
+// Calculate 4 COC at a time
+vec4 CalculateCOCs(float apertureDiameter, float focalLength, float focusDistance, vec4 viewSpaceDistances)
+{
+    viewSpaceDistances = max(vec4(0.31), viewSpaceDistances);
+
+    float viewSize = length(viewSize);
+    float scaleFactor = viewSize / DOF_SENSOR_SIZE * 1000.0f;
+
+    float maxBackgroundCOC = (apertureDiameter * focalLength * scaleFactor) / (focusDistance - focalLength);
+
+    //return vec4(16.0f);
+    return clamp(pow(abs(maxBackgroundCOC * oms(focusDistance / viewSpaceDistances)), vec4(DOF_FOCUS_AREA_SCALE)), vec4(0.0f), vec4(DOF_MAXIMUM_COC));
+    //return maxBackgroundCOC * oms(focusDistance / viewSpaceDistances);
+}
+
+float DownsampleCOCs(vec4 cocs)
+{
+    float ma = max(max(cocs.x, cocs.y), max(cocs.z, cocs.w));
+    float mi = min(min(cocs.x, cocs.y), min(cocs.z, cocs.w));
+    // Heuristic, very adhoc!!!
+    return (ma + mi) * 0.5f;
+}
+
+//======// Main //================================================================================//
+
+void main()
+{
+    // Get 2*2 quads
+    vec2 uv = vec2(gl_GlobalInvocationID.xy * 2.0f + 1.0f) * viewPixelSize;
+    vec4 depths = textureGather(depthtex1, uv);
+
+    #if DOF_FOCUS_MODE == 0
+         //float focusDistance = ScreenToViewDepth(centerDepthSmooth);
+        float focusDistance = global.centerDepthSmooth;// centerDepthSmooth
+    #else
+        float manualFocusDistance = DOF_MANUAL_FOCUS_DISTANCE_METERS
+                                  + DOF_MANUAL_FOCUS_DISTANCE_DECIMETERS
+                                  + DOF_MANUAL_FOCUS_DISTANCE_CENTIMETERS;
+        float focus = far * (manualFocusDistance - near) / ((far - near) * manualFocusDistance);
+        float focusDistance = ScreenToViewDepth(focus);
+    #endif
+    vec4 viewSpaceDistances = vec4(ScreenToViewDepth(depths.x),
+                                   ScreenToViewDepth(depths.y),
+                                   ScreenToViewDepth(depths.z),
+                                   ScreenToViewDepth(depths.w));
+
+    #if DOF_LENS_PARAMETER_MODE == 0
+        const float focalLength = DOF_SENSOR_SIZE * 0.001f * 0.5f * gbufferProjection[1][1];
+        const float apertureDiameter = focalLength / DOF_F_STOP;
+    #else
+        const float focalLength = DOF_LENS_FOCUS_LENGTH * 0.001f;
+        const float apertureDiameter = DOF_LENS_APERTURE_DIAMETER * 0.001f;
+    #endif
+
+    // Exclude the hand
+    #ifdef DOF_EXCLUDE_HAND
+        if (all(lessThan(depths, vec4(0.56f))))
+        {
+            return;
+        }
+    #endif
+
+    float centerDepth = texelFetch(depthtex2, ivec2(viewSize * vec2(DOF_FOCUS_POSITION_X, DOF_FOCUS_POSITION_Y)), 0).x * 2.0f - 1.0f;
+    centerDepth = 1.0 / (centerDepth * gbufferProjectionInverse[2][3] + gbufferProjectionInverse[3][3]);
+    float prevCenterDepth = global.prevCenterDepth;
+    float centerDepthSmooth = mix(prevCenterDepth, centerDepth, saturate(fastExp(-0.1f / (frameTime * 8.0f)) / (centerDepth + 0.5f)));
+    global.centerDepthSmooth = centerDepthSmooth;
+
+    vec4 COCs = CalculateCOCs(apertureDiameter, focalLength, focusDistance, viewSpaceDistances);
+    imageStore(CocImage, ivec2(gl_GlobalInvocationID.xy), vec4(DownsampleCOCs(COCs), 0.0f, 0.0f, 0.0f));
+}

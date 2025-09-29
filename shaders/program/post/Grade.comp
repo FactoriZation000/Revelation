@@ -16,6 +16,14 @@
 layout (local_size_x = 16, local_size_y = 16) in;
 const vec2 workGroupsRender = vec2(1.0, 1.0);
 
+// Input: R:minDepth G:maxCOC B:minCOC A:originalCOC
+layout (rgba16f) restrict uniform image2D tileDataImage;
+// Input: R:neighborhoodMinDepth G:neighborhoodMaxCOC B:neighborhoodMinCOC A:originalCOC
+layout (r11f_g11f_b10f) restrict uniform image2D tileDataNeighborhoodImage;
+// Input: RGB:color A:alpha
+layout (rgba16f) restrict uniform image2D medianFilteredImage;
+// Input: RGB:color A:alpha
+layout (rgba16f) restrict uniform image2D mainDataImage;
 //======// Utility //=============================================================================//
 
 #include "/lib/Utility.glsl"
@@ -41,6 +49,10 @@ uniform sampler2D colortex1; // TAA output
 uniform sampler2D colortex4; // Bloom tiles
 uniform sampler2D colortex6; // Rain alpha
 uniform sampler2D colortex12; // Bloomy fog mask
+uniform sampler2D medianFiltered;
+uniform sampler2D tileData;
+uniform sampler2D tileDataNeighborhood;
+uniform sampler2D coc;
 
 uniform sampler2D skyViewTex;
 
@@ -61,7 +73,7 @@ const vec2 bloomTileOffset[7] = vec2[7](
 	vec2(0.2500, 0.5000),
 	vec2(0.2500, 0.6250),
 	vec2(0.3125, 0.6250),
-	vec2(0.3150, 0.6563),
+	vec2(0.3125, 0.6563),
 	vec2(0.3281, 0.6563)
 );
 
@@ -202,6 +214,7 @@ void main() {
 	#else
 		vec3 HDRImage = texelFetch(colortex1, screenTexel, 0).rgb;
 	#endif
+
 
 	// Bloom and fog
 	#ifdef BLOOM_ENABLED

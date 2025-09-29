@@ -107,6 +107,7 @@ vec3 textureCatmullRomFast(in sampler2D tex, in vec2 position, in const float sh
 }
 
 #include "/lib/universal/TextRenderer.glsl"
+#include "/program/post/dof/DepthOfFieldCommon.glsl"
 
 void HistogramDisplay(inout vec3 color, in ivec2 texel) {
     const int binWidth = 2;
@@ -118,13 +119,14 @@ void HistogramDisplay(inout vec3 color, in ivec2 texel) {
 		color = vec3(step(texel.y + 1, binValue));
 	}
 }
+uniform sampler2D tileData;
 
 //======// Main //================================================================================//
 void main() {
     ivec2 screenTexel = ivec2(gl_FragCoord.xy);
 
 	#ifdef DEBUG_BLOOM_TILES
-		finalOut = texelFetch(colortex4, screenTexel, 0).rgb;
+		finalOut = texelFetch(tileData, screenTexel / 4, 0).rgb;
 	#else
 		if (abs(MC_RENDER_QUALITY - 1.0) < 1e-2) {
 			finalOut = FsrCasFilter(screenTexel);
@@ -138,8 +140,8 @@ void main() {
 
 	// Text display
 	#if 0
-		finalOut += renderText(ivec2(100), 3, vec3(0.5));
-		finalOut = saturate(finalOut);
+		const float focalLength = 0.5f * 0.035f * gbufferProjection[1][1];
+		finalOut += outputNumber(global.centerDepthSmooth, ivec2(100), 5, vec3(1.0));
 	#endif
 
 	// Time display
@@ -179,6 +181,23 @@ void main() {
 
 	// Apply bayer dithering to reduce banding artifacts
 	finalOut += (bayer16(gl_FragCoord.xy) - 0.5) * r255;
+
+	#ifdef DOF_FOCUS_POINT_VISIBILITY
+		// Focus position
+		vec2 center = viewSize * vec2(DOF_FOCUS_POSITION_X, DOF_FOCUS_POSITION_Y);
+		vec2 p = gl_FragCoord.xy - center;
+		vec2 boxHalfSize = vec2(20.0f, 20.0f);
+		float d = sdfBox(p, boxHalfSize);
+
+		float edge = 4.0f;
+
+		float alpha = smoothstep(edge, 0.0f, abs(d));
+		vec3 boxColor = vec3(1.0f, 0.0f, 0.0f);
+
+		// Blend onto final output
+		finalOut += boxColor * alpha;
+		// finalOut += outputNumber(texelFetch(colortex1, ivec2(1), 0).w, ivec2(viewSize * 0.5f - 130.0f), 5, vec3(1.0));
+	#endif
 
 	// Update SSBO
 	global.prevWorldTime = worldTime;

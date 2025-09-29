@@ -1,0 +1,78 @@
+/*
+--------------------------------------------------------------------------------
+
+	Copyright (C) 2025 Graphics Park
+	Apache License 2.0
+
+    Pass: Median Filter
+
+    Reference:[1]Guillaume Abadie, 2018, A Life of a bokeh, https://epicgames.ent.box.com/s/s86j70iamxvsuu6j35pilypficznec04
+              [2]Michael Potmesil & Indranil Chakravarty, 1981, Synthetic lmage Generation with a Lens and Aperture Camera Mode, https://ftp.bioeng.auckland.ac.nz/pub/pub/jtur044/references/virtual%20environments/p85-potmesil.pdf
+              [3]Jorge Jimenez, 2014, Next Generation Post Processing in Call of Duty Advanced Warfare, https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/
+              [4]John L. Smith, 1996, Implementing Median Filters in XC4000E FPGAS
+
+    Thank Yongxin Mo for optimizing and modifying the code.
+
+--------------------------------------------------------------------------------
+*/
+
+#define DOF_TILE_SIZE 8
+layout (local_size_x = 16, local_size_y = 16) in;
+
+//======// Image //===============================================================================//
+
+// Input: RGB:color A:alpha
+layout (rgba16f) restrict uniform image2D mainDataImage;
+// Output: RGB:color
+layout (rgba16f) restrict uniform image2D tempImage;
+
+// Output: RGB:color A:alpha
+layout (rgba16f) restrict uniform image2D colorimg0;
+//======// Utility //=============================================================================//
+
+#include "/lib/Utility.glsl"
+#include "/lib/universal/Uniform.glsl"
+#include "/lib/universal/Transform.glsl"
+#include "/lib/universal/Random.glsl"
+
+#include "/program/post/dof/DepthOfFieldCommon.glsl"
+
+//======// Uniform //=============================================================================//
+
+// uniform float centerDepthSmooth;
+uniform sampler2D mainData;
+uniform sampler2D prefilter;
+uniform sampler2D tileData;
+uniform sampler2D tileDataNeighborhood;
+uniform sampler2D temp;
+//======// Function //============================================================================//
+
+//======// Main //================================================================================//
+
+void main()
+{
+    ivec2 texel = ivec2(gl_GlobalInvocationID.xy);
+    vec2 uv = texelToUv(texel);
+
+	float p1 = texelFetch(mainData, texel / 2 + filterOffsets[0], 0).a;
+	float p2 = texelFetch(mainData, texel / 2 + filterOffsets[1], 0).a;
+	float p3 = texelFetch(mainData, texel / 2 + filterOffsets[2], 0).a;
+	float p4 = texelFetch(mainData, texel / 2 + filterOffsets[3], 0).a;
+	float p5 = texelFetch(mainData, texel / 2 + filterOffsets[4], 0).a;
+	float p6 = texelFetch(mainData, texel / 2 + filterOffsets[5], 0).a;
+	float p7 = texelFetch(mainData, texel / 2 + filterOffsets[6], 0).a;
+	float p8 = texelFetch(mainData, texel / 2 + filterOffsets[7], 0).a;
+	float p9 = texelFetch(mainData, texel / 2 + filterOffsets[8], 0).a;
+
+    float medianAlpha = Median9(p1, p2, p3, p4, p5, p6, p7, p8, p9);
+    vec3 originalData = MedianFilter3x3(mainData, texel / 2);
+
+	vec3 originalImage = texture(temp, uv * rcp(2.0f)).rgb;
+	float backgroundFactor = texture(tileData, uv * rcp(4.0f)).w;
+	float foregroundFactor = texture(tileDataNeighborhood, uv * rcp(4.0f)).y; // NeighborTileMaxCOC
+	float combinedFactor = saturate(mix(backgroundFactor, foregroundFactor, medianAlpha));
+
+	vec3 mixedImage = vec3(mix(originalImage, originalData, combinedFactor));
+
+    imageStore(colorimg0, texel , vec4(mixedImage, 0.0f));
+}

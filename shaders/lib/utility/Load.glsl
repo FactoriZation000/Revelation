@@ -22,3 +22,11 @@
 
 #define cloudShadowTex				colortex10
 #define cloudShadowImg				colorimg10
+
+#ifdef MC_GL_VENDOR_AMD
+	#define SCALARIZED_LOAD(a, b) \
+		(a) = subgroupBroadcastFirst(b)
+#else
+	#define SCALARIZED_LOAD(a, b) \
+		if (subgroupElect()) { (a) = (b); }
+#endif

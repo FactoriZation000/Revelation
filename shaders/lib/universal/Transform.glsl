@@ -75,7 +75,7 @@ vec3 Reproject(in vec3 screenPos) {
 }
 
 float ScreenToViewDepth(in float depth) {
-	return -gbufferProjection[3].z / (gbufferProjection[2].z + (depth * 2.0 - 1.0));
+	return gbufferProjection[3].z / (gbufferProjection[2].z + (depth * 2.0 - 1.0));
 }
 
 float ViewToScreenDepth(in float depth) {

@@ -1,0 +1,101 @@
+/*
+--------------------------------------------------------------------------------
+
+	Copyright (C) 2025 Graphics Park
+	Apache License 2.0
+
+    Pass: Tiling
+
+    Reference:[1]Guillaume Abadie, 2018, A Life of a bokeh, https://epicgames.ent.box.com/s/s86j70iamxvsuu6j35pilypficznec04
+              [2]Michael Potmesil & Indranil Chakravarty, 1981, Synthetic lmage Generation with a Lens and Aperture Camera Mode, https://ftp.bioeng.auckland.ac.nz/pub/pub/jtur044/references/virtual%20environments/p85-potmesil.pdf
+              [3]Jorge Jimenez, 2014, Next Generation Post Processing in Call of Duty Advanced Warfare, https://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare/
+              [4]John L. Smith, 1996, Implementing Median Filters in XC4000E FPGAS
+
+    Thank Yongxin Mo for optimizing and modifying the code.
+
+--------------------------------------------------------------------------------
+*/
+
+#define DOF_TILE_SIZE 8
+layout (local_size_x = DOF_TILE_SIZE, local_size_y = DOF_TILE_SIZE) in;
+
+shared vec3 sharedTileData[DOF_TILE_SIZE * DOF_TILE_SIZE / 16];
+shared vec3 outputTileData;
+
+//======// Image //===============================================================================//
+
+// Input: COC
+layout (r16f) restrict uniform readonly image2D CocImage;
+
+// Output: R:minDepth G:maxCOC B:minCOC A:originalCOC (from previous pass)
+layout (rgba16f) restrict uniform image2D tileDataImage;
+
+//======// Utility //=============================================================================//
+
+#include "/lib/Utility.glsl"
+#include "/lib/universal/Uniform.glsl"
+#include "/lib/universal/Transform.glsl"
+
+//======// Uniform //=============================================================================//
+
+// uniform float centerDepthSmooth;
+
+//======// Function //============================================================================//
+
+//======// Main //================================================================================//
+void main()
+{
+    ivec2 texel = ivec2(gl_GlobalInvocationID.xy);
+    vec2 uv = vec2(texel + 1) * viewPixelSize * 2.0f;
+
+    // Check the border
+    bool validPixel = all(lessThan(texel, (viewSize + 1) / 2));
+    // Load the data
+    vec4 depths = textureGather(depthtex1, uv);
+    // Min depth?
+    float depth = min(min(depths.x, depths.y), min(depths.z, depths.w));
+
+    float currentCOC = imageLoad(CocImage, texel).x;
+
+    float maxCOC = currentCOC;
+    float minCOC = currentCOC;
+
+    if (!validPixel) {
+        depth = 1.0f;
+        maxCOC = 0.0f;
+        minCOC = 1e6; // Hopefully large enough
+    }
+
+    // Reference:[3]
+    float minDepth = subgroupMin(depth);
+    maxCOC = subgroupMax(maxCOC);
+    minCOC = subgroupMin(minCOC);
+
+    SCALARIZED_LOAD(sharedTileData[gl_SubgroupID], vec3(minDepth, maxCOC, minCOC));
+    barrier();
+
+    if(gl_SubgroupID == 0)
+    {
+        vec3 tileData;
+        if (gl_SubgroupInvocationID < gl_NumSubgroups)
+        {
+            vec3 tileDataSubgroup = sharedTileData[gl_SubgroupInvocationID];
+            tileData.x = subgroupMin(tileDataSubgroup.x); // minDepth
+            tileData.y = subgroupMax(tileDataSubgroup.y); // maxCOC
+            tileData.z = subgroupMin(tileDataSubgroup.z); // minCOC
+        }
+        SCALARIZED_LOAD(outputTileData, tileData);
+    }
+
+    if (!validPixel)
+    {
+        return; // Early exit if texel is out of bounds
+    }
+
+    float originalCOC = imageLoad(CocImage, texel).x;
+
+    barrier();
+
+    vec4 writeResult = vec4(outputTileData, originalCOC);
+    imageStore(tileDataImage, texel / 2, writeResult);
+}

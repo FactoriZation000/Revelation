@@ -20,15 +20,19 @@ const vec2 workGroupsRender = vec2(0.5, 0.5);
 
 #include "/lib/Utility.glsl"
 
+
 //======// Uniform //=============================================================================//
 
 writeonly restrict uniform image2D colorimg4;
+
+
 
 #include "/lib/universal/Uniform.glsl"
 
 //======// Function //============================================================================//
 
 #include "/lib/universal/Transform.glsl"
+#include "/program/post/dof/DepthOfFieldCommon.glsl"
 
 //======// Main //================================================================================//
 void main() {
