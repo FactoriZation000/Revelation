@@ -23,6 +23,8 @@
 layout (location = 0) out vec3 sceneOut;
 layout (location = 1) out float bloomyFogMask;
 
+// Output: RGB:color A:alpha
+layout (rgba16f) restrict uniform image2D tempImage;
 //======// Uniform //=============================================================================//
 
 uniform usampler2D colortex11; // Volumetric Fog, linear depth
@@ -193,4 +195,6 @@ void main() {
 	#elif DEBUG_NORMALS == 2
 		sceneOut = FetchFlatNormal(gbufferData0) * 0.5 + 0.5;
 	#endif
+
+	imageStore(tempImage, screenTexel, vec4(sceneOut, 0.0f));
 }

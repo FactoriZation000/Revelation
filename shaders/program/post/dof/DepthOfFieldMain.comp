@@ -32,8 +32,7 @@ layout (rgba16f) restrict uniform image2D tileDataImage;
 
 // Output: RGB:color A:alpha
 layout (rgba16f) restrict uniform image2D mainDataImage;
-// Output: RGB:color
-layout (rgba16f) restrict uniform image2D tempImage;
+
 //======// Utility //=============================================================================//
 
 #include "/lib/Utility.glsl"
@@ -142,8 +141,8 @@ void main()
 
             // Rotate the sample points per ring to reduce artifacts
             float noise = TemporalIGN(texel, j, int(frameTime) % 64) * TAU * rcp(ringSampleCount[j]);
-            mat2 rot = mat2(cos(noise), -sin(noise), sin(noise), cos(noise));
-
+            vec2 cossin = cossin(noise);
+            mat2 rot = mat2(cossin.x, -cossin.y, cossin.y, cossin.x);
 
             for (uint i = startIdx; i < endIdx; ++i)
             {
@@ -194,7 +193,8 @@ void main()
             float ringRadius = float(j) / float(ringCount);
 
             float noise = TemporalIGN(texel, j, int(frameTime) % 64) * TAU * rcp(ringSampleCount[j]);
-            mat2 rot = mat2(cos(noise), -sin(noise), sin(noise), cos(noise));
+            vec2 cossin = cossin(noise);
+            mat2 rot = mat2(cossin.x, -cossin.y, cossin.y, cossin.x);
 
             for (uint i = startIdx; i < endIdx; ++i)
             {
@@ -241,9 +241,7 @@ void main()
 
     }
 
-    vec3 originalImage = texture(colortex0, texelToUv(texel * 2)).rgb;
     imageStore(mainDataImage, texel, vec4(color, alpha));
-    imageStore(tempImage, texel, vec4(originalImage, 0.0f));
 }
 #else
 void main()
@@ -292,7 +290,8 @@ void main()
 
             // Rotate the sample points per ring to reduce artifacts
             float noise = TemporalIGN(texel, j, int(frameTime) % 64) * TAU * rcp(ringSampleCount[j]);
-            mat2 rot = mat2(cos(noise), -sin(noise), sin(noise), cos(noise));
+            vec2 cossin = cossin(noise);
+            mat2 rot = mat2(cossin.x, -cossin.y, cossin.y, cossin.x);
 
             for (uint i = startIdx; i < endIdx; ++i)
             {
@@ -346,7 +345,8 @@ void main()
             uint endIdx = ringSampleCount[j];
 
             float noise = TemporalIGN(texel, j, int(frameTime) % 64) * TAU * rcp(ringSampleCount[j]);
-            mat2 rot = mat2(cos(noise), -sin(noise), sin(noise), cos(noise));
+            vec2 cossin = cossin(noise);
+            mat2 rot = mat2(cossin.x, -cossin.y, cossin.y, cossin.x);
 
             for (uint i = startIdx; i < endIdx; ++i)
             {
@@ -393,8 +393,6 @@ void main()
 
     }
 
-    vec3 originalImage = texture(colortex0, texelToUv(texel * 2)).rgb;
     imageStore(mainDataImage, texel, vec4(color, alpha));
-    imageStore(tempImage, texel, vec4(originalImage, 0.0f));
 }
 #endif

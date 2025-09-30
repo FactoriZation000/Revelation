@@ -131,6 +131,7 @@ vec4 TemporalReprojection(in vec2 screenCoord, in vec2 motionVector) {
 
     #ifdef TAA_SHARPEN
         vec3 prevData = textureLanczos(colortex1, prevCoord).rgb;
+        prevData = satU16f(prevData);
     #else
         vec3 prevData = texture(colortex1, prevCoord).rgb;
     #endif
