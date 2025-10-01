@@ -54,25 +54,40 @@ void main()
     ivec2 texel = ivec2(gl_GlobalInvocationID.xy);
     vec2 uv = texelToUv(texel);
 
-	float p1 = texelFetch(mainData, texel / 2 + filterOffsets[0], 0).a;
-	float p2 = texelFetch(mainData, texel / 2 + filterOffsets[1], 0).a;
-	float p3 = texelFetch(mainData, texel / 2 + filterOffsets[2], 0).a;
-	float p4 = texelFetch(mainData, texel / 2 + filterOffsets[3], 0).a;
-	float p5 = texelFetch(mainData, texel / 2 + filterOffsets[4], 0).a;
-	float p6 = texelFetch(mainData, texel / 2 + filterOffsets[5], 0).a;
-	float p7 = texelFetch(mainData, texel / 2 + filterOffsets[6], 0).a;
-	float p8 = texelFetch(mainData, texel / 2 + filterOffsets[7], 0).a;
-	float p9 = texelFetch(mainData, texel / 2 + filterOffsets[8], 0).a;
+    vec2 halfResPos = vec2(texel) * 0.5f;
+    ivec2 halfResBase = ivec2(floor(halfResPos));
+    vec2 weight = fract(halfResPos);
 
-    float medianAlpha = Median9(p1, p2, p3, p4, p5, p6, p7, p8, p9);
-    vec3 originalData = MedianFilter3x3(mainData, texel / 2);
+	// Hybrid median-bilinear filter
+    vec4 samples[4];
+    for(uint i = 0; i < 4; i++) {
+        ivec2 offset = ivec2(i & 1, i >> 1);
+        ivec2 halfTexel = halfResBase + offset;
 
-	vec3 originalImage = texture(setup, uv).rgb;
-	float backgroundFactor = texture(tileData, uv * rcp(4.0f)).w;
-	float foregroundFactor = texture(tileDataNeighborhood, uv * rcp(4.0f)).y; // NeighborTileMaxCOC
-	float combinedFactor = saturate(mix(backgroundFactor, foregroundFactor, medianAlpha));
+        float p1 = texelFetch(mainData, halfTexel + filterOffsets[0], 0).a;
+        float p2 = texelFetch(mainData, halfTexel + filterOffsets[1], 0).a;
+        float p3 = texelFetch(mainData, halfTexel + filterOffsets[2], 0).a;
+        float p4 = texelFetch(mainData, halfTexel + filterOffsets[3], 0).a;
+        float p5 = texelFetch(mainData, halfTexel + filterOffsets[4], 0).a;
+        float p6 = texelFetch(mainData, halfTexel + filterOffsets[5], 0).a;
+        float p7 = texelFetch(mainData, halfTexel + filterOffsets[6], 0).a;
+        float p8 = texelFetch(mainData, halfTexel + filterOffsets[7], 0).a;
+        float p9 = texelFetch(mainData, halfTexel + filterOffsets[8], 0).a;
+        float medianAlpha = Median9(p1, p2, p3, p4, p5, p6, p7, p8, p9);
 
-	vec3 mixedImage = vec3(mix(originalImage, originalData, combinedFactor));
+        vec3 medianColor = MedianFilter3x3(mainData, halfTexel);
+        samples[i] = vec4(medianColor, medianAlpha);
+    }
 
-    imageStore(colorimg0, texel , vec4(mixedImage, 0.0f));
+    vec4 s0 = mix(samples[0], samples[1], weight.x);
+    vec4 s1 = mix(samples[2], samples[3], weight.x);
+    vec4 filtered = mix(s0, s1, weight.y);
+
+    vec3 originalImage = texture(setup, uv).rgb;
+    float backgroundFactor = texture(tileData, uv * rcp(4.0f)).w;
+    float foregroundFactor = texture(tileDataNeighborhood, uv * rcp(4.0f)).y;
+    float combinedFactor = saturate(mix(backgroundFactor, foregroundFactor, filtered.a));
+    vec3 mixedImage = mix(originalImage, filtered.rgb, combinedFactor);
+
+    imageStore(colorimg0, texel, vec4(mixedImage, 0.0f));
 }

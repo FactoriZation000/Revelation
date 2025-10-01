@@ -23,8 +23,8 @@
 layout (location = 0) out vec3 sceneOut;
 layout (location = 1) out float bloomyFogMask;
 
-// Output: RGB:color A:alpha
-layout (rgba16f) restrict uniform image2D tempImage;
+// Output: RGB:color A:depth
+layout (rgba16f) restrict uniform image2D setupImage;
 //======// Uniform //=============================================================================//
 
 uniform usampler2D colortex11; // Volumetric Fog, linear depth
@@ -66,6 +66,7 @@ void main() {
     vec2 screenCoord = gl_FragCoord.xy * viewPixelSize;
 
 	float depth = loadDepth0(screenTexel);
+	float depth1 = loadDepth1(screenTexel);
 
 	vec3 screenPos = vec3(screenCoord, depth);
 	vec3 viewPos = ScreenToViewSpace(screenPos);
@@ -196,5 +197,6 @@ void main() {
 		sceneOut = FetchFlatNormal(gbufferData0) * 0.5 + 0.5;
 	#endif
 
-	imageStore(tempImage, screenTexel, vec4(sceneOut, 0.0f));
+
+	imageStore(setupImage, screenTexel, vec4(sceneOut, depth1));
 }

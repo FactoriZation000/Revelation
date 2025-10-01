@@ -42,7 +42,7 @@ layout (r11f_g11f_b10f) restrict uniform image2D tileDataNeighborhoodImage;
 //======// Uniform //=============================================================================//
 
 //uniform float centerDepthSmooth;
-
+uniform sampler2D setup;
 
 //======// Function //============================================================================//
 
@@ -76,7 +76,7 @@ void main()
 
    	if (maxMinCOC.x < 1.0f)
     {
-	    prefilteredColor = texture(colortex0, uv).rgb;// Early exit
+	    prefilteredColor = texture(setup, uv).rgb;// Early exit
 	}
     // else
     {
@@ -95,15 +95,15 @@ void main()
             // }
             // Completely unroll
             {
-				vec3 color0 = texture(colortex0, uv + ringScale * circularFilterOffsets[0]).rgb;
-				vec3 color1 = texture(colortex0, uv + ringScale * circularFilterOffsets[1]).rgb;
-				vec3 color2 = texture(colortex0, uv + ringScale * circularFilterOffsets[2]).rgb;
-				vec3 color3 = texture(colortex0, uv + ringScale * circularFilterOffsets[3]).rgb;
-				vec3 color4 = texture(colortex0, uv + ringScale * circularFilterOffsets[4]).rgb;
-				vec3 color5 = texture(colortex0, uv + ringScale * circularFilterOffsets[5]).rgb;
-				vec3 color6 = texture(colortex0, uv + ringScale * circularFilterOffsets[6]).rgb;
-				vec3 color7 = texture(colortex0, uv + ringScale * circularFilterOffsets[7]).rgb;
-				vec3 color8 = texture(colortex0, uv + ringScale * circularFilterOffsets[8]).rgb;
+				vec3 color0 = texture(setup, uv + ringScale * circularFilterOffsets[0]).rgb;
+				vec3 color1 = texture(setup, uv + ringScale * circularFilterOffsets[1]).rgb;
+				vec3 color2 = texture(setup, uv + ringScale * circularFilterOffsets[2]).rgb;
+				vec3 color3 = texture(setup, uv + ringScale * circularFilterOffsets[3]).rgb;
+				vec3 color4 = texture(setup, uv + ringScale * circularFilterOffsets[4]).rgb;
+				vec3 color5 = texture(setup, uv + ringScale * circularFilterOffsets[5]).rgb;
+				vec3 color6 = texture(setup, uv + ringScale * circularFilterOffsets[6]).rgb;
+				vec3 color7 = texture(setup, uv + ringScale * circularFilterOffsets[7]).rgb;
+				vec3 color8 = texture(setup, uv + ringScale * circularFilterOffsets[8]).rgb;
 
                 float weight0 = KarisAverage(color0) * 1.0f;
                 float weight1 = KarisAverage(color1) * 2.0f;
@@ -130,7 +130,7 @@ void main()
         }// Cheap and expensive
         else
         {
-            prefilteredColor = texture(colortex0, uv).rgb;
+            prefilteredColor = texture(setup, uv).rgb;
         }
 	}
 
