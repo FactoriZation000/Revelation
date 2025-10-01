@@ -56,7 +56,7 @@ void main()
 
     vec2 halfResPos = vec2(texel) * 0.5f;
     ivec2 halfResBase = ivec2(floor(halfResPos));
-    vec2 weight = fract(halfResPos);
+    vec2 weight = smoothstep(0.0, 1.0, fract(halfResPos));
 
 	// Hybrid median-bilinear filter
     vec4 samples[4];

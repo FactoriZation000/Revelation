@@ -432,5 +432,5 @@ float TemporalIGN(vec2 p, float seed, float time)
 // Known Problem：
 // 边缘锯齿
 // 亮物体边缘产生bokeh
-// pixelated bokeh
+
 

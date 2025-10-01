@@ -27,6 +27,8 @@ out vec3 finalOut;
 
 #include "/lib/universal/Uniform.glsl"
 
+uniform sampler2D setup;
+
 //======// SSBO //================================================================================//
 
 #include "/lib/universal/SSBO.glsl"
@@ -119,14 +121,18 @@ void HistogramDisplay(inout vec3 color, in ivec2 texel) {
 		color = vec3(step(texel.y + 1, binValue));
 	}
 }
-uniform sampler2D tileData;
+float sdfBox(vec2 p, vec2 b)
+{
+    vec2 d = abs(p) - b;
+    return length(max(d, 0.0f)) + min(max(d.x, d.y), 0.0f);
+}
 
 //======// Main //================================================================================//
 void main() {
     ivec2 screenTexel = ivec2(gl_FragCoord.xy);
 
 	#ifdef DEBUG_BLOOM_TILES
-		finalOut = texelFetch(tileData, screenTexel / 4, 0).rgb;
+		finalOut = texelFetch(setup, screenTexel, 0).rgb;
 	#else
 		if (abs(MC_RENDER_QUALITY - 1.0) < 1e-2) {
 			finalOut = FsrCasFilter(screenTexel);
@@ -141,7 +147,7 @@ void main() {
 	// Text display
 	#if 0
 		const float focalLength = 0.5f * 0.035f * gbufferProjection[1][1];
-		finalOut += outputNumber(global.centerDepthSmooth, ivec2(100), 5, vec3(1.0));
+		finalOut += outputNumber(frameTimeCounter, ivec2(100), 5, vec3(1.0));
 	#endif
 
 	// Time display
