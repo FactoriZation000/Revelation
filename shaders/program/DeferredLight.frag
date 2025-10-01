@@ -116,11 +116,11 @@ void main() {
 		}
 
 		#ifdef CLOUDS
-			// Dither offset
-			screenCoord += viewPixelSize * (dither - 0.5);
 			#ifdef CLOUD_TAAU_ENABLED
 				vec4 cloudData = texture(cloudReconstructTex, screenCoord);
 			#else
+				// Dither offset
+				screenCoord += viewPixelSize * (dither - 0.5);
 				vec4 cloudData = textureBicubic(cloudOriginTex, screenCoord);
 			#endif
 			sceneOut = sceneOut * cloudData.a + cloudData.rgb;
@@ -190,9 +190,9 @@ void main() {
 		#if AO_ENABLED > 0 && !defined SSPT_ENABLED
 			vec3 ao = vec3(1.0);
 			#if AO_ENABLED == 1
-				ao.x = CalculateSSAO(screenCoord, viewPos, viewNormal, dither);
+				ao.x = CalculateSSAO(screenCoord, viewPos, viewNormal, SampleStbnUnitvec2(screenTexel, frameCounter));
 			#else
-				ao.x = CalculateGTAO(screenCoord, viewPos, viewNormal, dither);
+				ao.x = CalculateGTAO(screenCoord, viewPos, viewNormal, SampleStbnVec2(screenTexel, frameCounter));
 			#endif
 
 			#ifdef AO_MULTI_BOUNCE
@@ -207,7 +207,7 @@ void main() {
 		// Cloud shadows
 		#ifdef CLOUD_SHADOWS
 			// float cloudShadow = CalculateCloudShadows(worldPos);
-			vec2 cloudShadowCoord = WorldToCloudShadowScreenPos(worldPos).xy + (dither * 2.0 - 1.0) / textureSize(cloudShadowTex, 0);
+			vec2 cloudShadowCoord = WorldToCloudShadowScreenPos(worldPos).xy + (dither - 0.5) / textureSize(cloudShadowTex, 0);
 			float cloudShadow = textureBicubic(cloudShadowTex, saturate(cloudShadowCoord)).x;
 		#else
 			float cloudShadow = 1.0 - wetness * 0.96;
