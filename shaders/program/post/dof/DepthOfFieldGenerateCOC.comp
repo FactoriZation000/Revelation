@@ -100,10 +100,11 @@ void main()
         }
     #endif
 
+    // centerDepthSmooth
     float centerDepth = texelFetch(depthtex2, ivec2(viewSize * vec2(DOF_FOCUS_POSITION_X, DOF_FOCUS_POSITION_Y)), 0).x * 2.0f - 1.0f;
-    centerDepth = 1.0 / (centerDepth * gbufferProjectionInverse[2][3] + gbufferProjectionInverse[3][3]);
+    centerDepth = 1.0f / (centerDepth * gbufferProjectionInverse[2][3] + gbufferProjectionInverse[3][3]);
     float prevCenterDepth = global.prevCenterDepth;
-    float centerDepthSmooth = mix(prevCenterDepth, centerDepth, saturate(fastExp(-0.1f / (frameTime * 8.0f)) / (centerDepth + 0.5f)));
+    float centerDepthSmooth = mix(prevCenterDepth, centerDepth, fastExp(-0.1f / (frameTime * 8.0f)) / (centerDepth + 0.5f));
     global.centerDepthSmooth = centerDepthSmooth;
 
     vec4 COCs = CalculateCOCs(apertureDiameter, focalLength, focusDistance, viewSpaceDistances);

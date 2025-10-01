@@ -108,9 +108,11 @@ void main()
     vec3 centerColor = imageLoad(prefilterImage, texel).rgb;
     vec3 centerPresort = imageLoad(presortImage, texel).rgb;
 
-    // float originalCOC = imageLoad(tileDataImage, texel / 2).w;
+    // float originalCOC = imageLoad(tileDataImage, texel / 4).w;
 
-    vec2 colorAberrationOffset = vec2(distance(uv, vec2(0.5f)) * clamp(maxMinCOC.x * DOF_COLOR_ABERRATION_STRENGTH, 0.0f, DOF_COLOR_ABERRATION_MAX_OFFSET));
+	vec2 screenCoord = gl_GlobalInvocationID.xy * 2.0f * viewPixelSize;
+	vec2 clipCoord = screenCoord * 2.0f - 1.0f;
+    vec2 colorAberrationOffset = vec2(sqr(clipCoord) * clamp(maxMinCOC.x * DOF_COLOR_ABERRATION_FACTOR, -DOF_COLOR_ABERRATION_MAX_OFFSET, DOF_COLOR_ABERRATION_MAX_OFFSET));
 
     if (maxMinCOC.x < 1.0f)// Early exit
     {
@@ -140,13 +142,13 @@ void main()
             float ringRadius = float(j) / float(ringCount);
 
             // Rotate the sample points per ring to reduce artifacts
-            float noise = TemporalIGN(texel, j, int(frameTime) % 64) * TAU * rcp(ringSampleCount[j]);
+            float noise = TemporalIGN(texel, j, int(frameTime) % 32) * TAU * rcp(ringSampleCount[j]);
             vec2 cossin = cossin(noise);
             mat2 rot = mat2(cossin.x, -cossin.y, cossin.y, cossin.x);
 
             for (uint i = startIdx; i < endIdx; ++i)
             {
-                vec2 offset = precomputedOffsets[i] * ringRadius * rot;
+                vec2 offset = precomputedBokehOffsets[i] * ringRadius * rot;
                 #ifdef DOF_CAT_EYE_EFFECT
                     offset = ApplyCatEyeEffect(uv, vec2(0.5f), offset);
                 #endif
@@ -192,14 +194,14 @@ void main()
             uint endIdx = ringSampleCount[j];
             float ringRadius = float(j) / float(ringCount);
 
-            float noise = TemporalIGN(texel, j, int(frameTime) % 64) * TAU * rcp(ringSampleCount[j]);
+            float noise = TemporalIGN(texel, j, int(frameTime) % 32) * TAU * rcp(ringSampleCount[j]);
             vec2 cossin = cossin(noise);
             mat2 rot = mat2(cossin.x, -cossin.y, cossin.y, cossin.x);
 
             for (uint i = startIdx; i < endIdx; ++i)
             {
 
-                vec2 offset = precomputedOffsets[i] * ringRadius * rot;
+                vec2 offset = precomputedBokehOffsets[i] * ringRadius * rot;
                 #ifdef DOF_CAT_EYE_EFFECT
                     offset = ApplyCatEyeEffect(uv, vec2(0.5f), offset);
                 #endif
@@ -260,7 +262,9 @@ void main()
 
     // float originalCOC = imageLoad(tileDataImage, texel / 2).w;
 
-    vec2 colorAberrationOffset = vec2(distance(uv, vec2(0.5f)) * clamp(maxMinCOC.x * DOF_COLOR_ABERRATION_STRENGTH, 0.0f, DOF_COLOR_ABERRATION_MAX_OFFSET));
+    vec2 screenCoord = gl_GlobalInvocationID.xy * 2.0f * viewPixelSize;
+	vec2 clipCoord = screenCoord * 2.0f - 1.0f;
+    vec2 colorAberrationOffset = vec2(sqr(clipCoord) * clamp(maxMinCOC.x * DOF_COLOR_ABERRATION_FACTOR, -DOF_COLOR_ABERRATION_MAX_OFFSET, DOF_COLOR_ABERRATION_MAX_OFFSET));
 
     if (maxMinCOC.x < 1.0f)// Early exit
     {
@@ -289,14 +293,14 @@ void main()
             uint endIdx = ringSampleCount[j];
 
             // Rotate the sample points per ring to reduce artifacts
-            float noise = TemporalIGN(texel, j, int(frameTime) % 64) * TAU * rcp(ringSampleCount[j]);
+            float noise = TemporalIGN(texel, j, int(frameTime) % 32) * TAU * rcp(ringSampleCount[j]);
             vec2 cossin = cossin(noise);
             mat2 rot = mat2(cossin.x, -cossin.y, cossin.y, cossin.x);
 
             for (uint i = startIdx; i < endIdx; ++i)
             {
                 // vec2 noise = vec2(BlueNoiseTemporal(texel.xy + ivec2(i,j))) * 0.125f * (float(j) * rcp(float(ringCount)));
-                vec2 offset = hexPrecomputedOffsets[i] * rot;
+                vec2 offset = hexprecomputedBokehOffsets[i] * rot;
 
                 #ifdef DOF_CAT_EYE_EFFECT
                     offset = ApplyCatEyeEffect(uv, vec2(0.5f), offset);
@@ -344,14 +348,14 @@ void main()
             uint startIdx = ringSampleCount[j - 1];
             uint endIdx = ringSampleCount[j];
 
-            float noise = TemporalIGN(texel, j, int(frameTime) % 64) * TAU * rcp(ringSampleCount[j]);
+            float noise = TemporalIGN(texel, j, int(frameTime) % 32) * TAU * rcp(ringSampleCount[j]);
             vec2 cossin = cossin(noise);
             mat2 rot = mat2(cossin.x, -cossin.y, cossin.y, cossin.x);
 
             for (uint i = startIdx; i < endIdx; ++i)
             {
 
-                vec2 offset = hexPrecomputedOffsets[i] * rot;
+                vec2 offset = hexprecomputedBokehOffsets[i] * rot;
                 #ifdef DOF_CAT_EYE_EFFECT
                     offset = ApplyCatEyeEffect(uv, vec2(0.5f), offset);
                 #endif

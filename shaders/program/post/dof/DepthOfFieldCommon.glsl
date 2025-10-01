@@ -56,9 +56,9 @@
 
 //#define DOF_COLOR_ABERRATION
 // Enable CA
-#define DOF_COLOR_ABERRATION_STRENGTH 0.005f // [0.001f 0.002f 0.003f 0.004f 0.005f 0.006f 0.007f 0.008f 0.009f 0.010f]
+#define DOF_COLOR_ABERRATION_FACTOR 0.005f // [0.005f 0.010f 0.015f 0.020f 0.025f 0.030f 0.035f 0.040f 0.045f 0.050f 0.055f 0.060f 0.065f 0.070f 0.075f 0.080f 0.085f 0.090f 0.095f 0.100f]
 // Recommended value:0.005f or below
-#define DOF_COLOR_ABERRATION_MAX_OFFSET 0.0020f // [0.0010f 0.0011f 0.0012f 0.0013f 0.0014f 0.0015f 0.0016f 0.0017f 0.0018f 0.0019f 0.0020f 0.0021f 0.0022f 0.0023f 0.0024f 0.0025f 0.0026f 0.0027f 0.0028f 0.0029f 0.0030f]
+#define DOF_COLOR_ABERRATION_MAX_OFFSET 0.0050f // [0.0010f 0.0015f 0.0020f 0.0025f 0.0030f 0.0035f 0.0040f 0.0045f 0.0050f 0.0055f 0.0060f 0.0065f 0.0070f 0.0075f 0.0080f 0.0085f 0.0090f 0.0095f 0.0100f]
 // Recommended value:0.0020 or below
 
 //#define DOF_CAT_EYE_EFFECT
@@ -87,7 +87,7 @@
 float SafeRcp(float x) { return x > 1e-6 ? rcp(x) : 0.0f; }
 
 //  Reference:[3]
-const vec2 precomputedOffsets[49] = vec2[49]
+const vec2 precomputedBokehOffsets[49] = vec2[49]
 (
     // === Center (1 point) ===
     vec2( 0.00000f,  0.00000f),
@@ -147,7 +147,7 @@ const vec2 precomputedOffsets[49] = vec2[49]
     vec2( 0.96593f, -0.25882f)
 );
 
-// const vec2 hexPrecomputedOffsets[61] = vec2[61](
+// const vec2 hexprecomputedBokehOffsets[61] = vec2[61](
 //     // === Center (1 point) ===
 //     vec2( 0.00000f,  0.00000f),
 
@@ -218,7 +218,7 @@ const vec2 precomputedOffsets[49] = vec2[49]
 //     vec2( 0.87500f, -0.21651f)
 // );
 
-const vec2 hexPrecomputedOffsets[37] = vec2[37]
+const vec2 hexprecomputedBokehOffsets[37] = vec2[37]
 (
     // === Center (1 point) ===
     vec2( 0.00000f,  0.00000f),
@@ -329,6 +329,12 @@ const ivec2 filterOffsets[9] = ivec2[9]
     ivec2(-1, -1), ivec2( 0, -1), ivec2( 1, -1),
     ivec2(-1,  0), ivec2( 0,  0), ivec2( 1,  0),
     ivec2(-1,  1), ivec2( 0,  1), ivec2( 1,  1)
+);
+
+const vec2 circularFilterOffsets[9] = vec2[9](
+    vec2(-1.00000f,  0.00000f), vec2(-0.70711f, -0.70711f), vec2(0.00000f, -1.00000f),
+    vec2( 0.70711f, -0.70711f), vec2( 0.00000f,  0.00000f), vec2(0.70711f,  0.70711f),
+    vec2( 0.00000f,  1.00000f), vec2(-0.70711f,  0.70711f), vec2(1.00000f,  0.00000f)
 );
 
 // Reference:[3][4]

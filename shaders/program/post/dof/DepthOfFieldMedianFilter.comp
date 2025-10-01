@@ -23,8 +23,8 @@ layout (local_size_x = 16, local_size_y = 16) in;
 
 // Input: RGB:color A:alpha
 layout (rgba16f) restrict uniform image2D mainDataImage;
-// Input: RGB:color
-layout (rgba16f) restrict uniform image2D tempImage;
+// Input: RGB:color A:depth
+layout (rgba16f) restrict uniform image2D setupImage;
 
 // Output: RGB:color A:alpha
 layout (rgba16f) restrict uniform image2D colorimg0;
@@ -44,7 +44,7 @@ uniform sampler2D mainData;
 uniform sampler2D prefilter;
 uniform sampler2D tileData;
 uniform sampler2D tileDataNeighborhood;
-uniform sampler2D temp;
+uniform sampler2D setup;
 //======// Function //============================================================================//
 
 //======// Main //================================================================================//
@@ -67,7 +67,7 @@ void main()
     float medianAlpha = Median9(p1, p2, p3, p4, p5, p6, p7, p8, p9);
     vec3 originalData = MedianFilter3x3(mainData, texel / 2);
 
-	vec3 originalImage = texture(temp, uv).rgb;
+	vec3 originalImage = texture(setup, uv).rgb;
 	float backgroundFactor = texture(tileData, uv * rcp(4.0f)).w;
 	float foregroundFactor = texture(tileDataNeighborhood, uv * rcp(4.0f)).y; // NeighborTileMaxCOC
 	float combinedFactor = saturate(mix(backgroundFactor, foregroundFactor, medianAlpha));
