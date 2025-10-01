@@ -27,31 +27,28 @@ layout (r16f) restrict uniform writeonly image2D CocImage;
 #include "/lib/Utility.glsl"
 #include "/lib/universal/Uniform.glsl"
 #include "/lib/universal/Transform.glsl"
+#include "/lib/universal/SSBO.glsl"
 
 #include "/program/post/dof/DepthOfFieldCommon.glsl"
-
-#include "/lib/universal/SSBO.glsl"
 //======// Uniform //=============================================================================//
 
 //uniform float centerDepthSmooth;
 uniform sampler2D setup;
-
 //======// Function //============================================================================//
 
 // Reference:[1][2]
 // Calculate 4 COC at a time
 vec4 CalculateCOCs(float apertureDiameter, float focalLength, float focusDistance, vec4 viewSpaceDistances)
 {
-    viewSpaceDistances = max(vec4(0.31), viewSpaceDistances);
+    viewSpaceDistances = max(vec4(0.31f), viewSpaceDistances);
 
     float viewSize = length(viewSize);
-    float scaleFactor = viewSize / DOF_SENSOR_SIZE * 1000.0f;
+    float scaleFactor = viewSize * rcp(DOF_SENSOR_SIZE) * 1000.0f;
 
     float maxBackgroundCOC = (apertureDiameter * focalLength * scaleFactor) / (focusDistance - focalLength);
 
     //return vec4(16.0f);
     return clamp(pow(abs(maxBackgroundCOC * oms(focusDistance / viewSpaceDistances)), vec4(DOF_FOCUS_AREA_SCALE)), vec4(0.0f), vec4(DOF_MAXIMUM_COC));
-    //return maxBackgroundCOC * oms(focusDistance / viewSpaceDistances);
 }
 
 float DownsampleCOCs(vec4 cocs)
@@ -103,7 +100,7 @@ void main()
 
     // centerDepthSmooth
     float centerDepth = texelFetch(depthtex2, ivec2(viewSize * vec2(DOF_FOCUS_POSITION_X, DOF_FOCUS_POSITION_Y)), 0).x * 2.0f - 1.0f;
-    centerDepth = 1.0f / (centerDepth * gbufferProjectionInverse[2][3] + gbufferProjectionInverse[3][3]);
+    centerDepth = SafeRcp(centerDepth * gbufferProjectionInverse[2][3] + gbufferProjectionInverse[3][3]);
     float prevCenterDepth = global.prevCenterDepth;
     float centerDepthSmooth = mix(prevCenterDepth, centerDepth, fastExp(-0.1f / (frameTime * 8.0f)) / (centerDepth + 0.5f));
     global.centerDepthSmooth = centerDepthSmooth;

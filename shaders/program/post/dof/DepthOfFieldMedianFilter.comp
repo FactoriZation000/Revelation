@@ -28,6 +28,7 @@ layout (rgba16f) restrict uniform image2D setupImage;
 
 // Output: RGB:color A:alpha
 layout (rgba16f) restrict uniform image2D colorimg0;
+
 //======// Utility //=============================================================================//
 
 #include "/lib/Utility.glsl"
@@ -83,10 +84,12 @@ void main()
     vec4 s1 = mix(samples[2], samples[3], weight.x);
     vec4 filtered = mix(s0, s1, weight.y);
 
-    vec3 originalImage = texture(setup, uv).rgb;
     float backgroundFactor = texture(tileData, uv * rcp(4.0f)).w;
     float foregroundFactor = texture(tileDataNeighborhood, uv * rcp(4.0f)).y;
     float combinedFactor = saturate(mix(backgroundFactor, foregroundFactor, filtered.a));
+
+    vec3 originalImage = texture(setup, uv).rgb;
+
     vec3 mixedImage = mix(originalImage, filtered.rgb, combinedFactor);
 
     imageStore(colorimg0, texel, vec4(mixedImage, 0.0f));

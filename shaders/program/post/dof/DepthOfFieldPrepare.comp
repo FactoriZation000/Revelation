@@ -56,19 +56,18 @@ void main()
     // Presort
     // float centerDepthSmooth = texelFetch(colortex1, ivec2(1), 0).w;// centerDepthSmooth
     float depth = ScreenToViewDepth(textureLod(depthtex1, uv, 0.0f).x);
-    float minDepth = ScreenToViewDepth(imageLoad(tileDataNeighborhoodImage, texel / 2).x);
+    float minDepth = ScreenToViewDepth(imageLoad(tileDataNeighborhoodImage, texel >> 1).x);
     vec2 depthCmp = DepthCmp2(depth, minDepth);
-
-    float alpha = SampleAlpha(imageLoad(tileDataImage, texel / 2).w);
+    float alpha = SampleAlpha(imageLoad(tileDataImage, texel >> 1).w);
 
     float backgroundFactor = depthCmp.x * alpha;
     float foregroundFactor = depthCmp.y * alpha;
 
     // Prefilter
     vec3 prefilteredColor = vec3(0.0f);
-    vec2 maxMinCOC = imageLoad(tileDataNeighborhoodImage, texel / 2).yz;
 
-    float originalCOC = imageLoad(tileDataImage, texel / 2).w;
+    vec2 maxMinCOC = imageLoad(tileDataNeighborhoodImage, texel >> 1).yz;
+    float originalCOC = imageLoad(tileDataImage, texel >> 1).w;
 
     // float noise = TemporalIGN(texel, int(frameTime) % 32) * TAU * rcp(9);
     // vec2 cossin = cossin(noise);
@@ -135,7 +134,6 @@ void main()
 	}
 
     imageStore(presortImage, texel, vec4(0.0f, backgroundFactor, foregroundFactor, 0.0f));
-    // imageStore(prefilterImage, texel, vec4(KarisAverage(prefilteredColor), 0.0f));
     imageStore(prefilterImage, texel, vec4(prefilteredColor, 0.0f));
 
 }

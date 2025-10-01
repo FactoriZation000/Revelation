@@ -39,9 +39,9 @@ layout (rgba16f) restrict uniform image2D mainDataImage;
 #include "/lib/universal/Uniform.glsl"
 #include "/lib/universal/Transform.glsl"
 #include "/lib/universal/Random.glsl"
+#include "/lib/universal/SSBO.glsl"
 
 #include "/program/post/dof/DepthOfFieldCommon.glsl"
-#include "/lib/universal/SSBO.glsl"
 //======// Uniform //=============================================================================//
 
 // uniform float centerDepthSmooth;
@@ -57,9 +57,9 @@ float intersectCOC(vec2 p, float radius) {
 }
 
 float intersectCOC2(vec2 p, float radius) {
-    float q = abs(p.y) * (2.0 / radius);
-    float r = (abs(p.y) + abs(p.x) * sqrt(3.0)) / radius;
-    float s = (abs(p.y) - abs(p.x) * sqrt(3.0)) / radius;
+    float q = abs(p.x) * (2.0 / radius);
+    float r = (abs(p.x) + abs(p.y) * sqrt(3.0)) / radius;
+    float s = (abs(p.x) - abs(p.y) * sqrt(3.0)) / radius;
 
     return smoothstep(2.01, 1.99, max(abs(q), max(abs(r), abs(s))));
 }
@@ -104,7 +104,7 @@ void main()
     ivec2 texel = ivec2(gl_GlobalInvocationID.xy);
     vec2 uv = texelToUv(texel);
 
-    vec2 maxMinCOC = imageLoad(tileDataNeighborhoodImage, texel / 2).yz;
+    vec2 maxMinCOC = imageLoad(tileDataNeighborhoodImage, texel >> 1).yz;
     vec3 centerColor = imageLoad(prefilterImage, texel).rgb;
     vec3 centerPresort = imageLoad(presortImage, texel).rgb;
 
@@ -175,7 +175,7 @@ void main()
     else// Expensive
     {
         // Center data
-        float centerCOC = imageLoad(tileDataImage, texel / 2).w;
+        float centerCOC = imageLoad(tileDataImage, texel >> 1).w;
         float centerBackgroundWeight = centerPresort.g;
         float centerForegroundWeight = centerPresort.b;
 
@@ -236,11 +236,10 @@ void main()
         background.rgb *= SafeRcp(background.a);
         foreground.rgb *= SafeRcp(foreground.a);
 
-        const float growForegroundSolid = 2.0f;
+        // const float growForegroundSolid = 2.0f;
         float totalSamples = float(ringSampleCount[ringCount]);
         alpha = saturate(SafeRcp(totalSamples) * SafeRcp(SampleAlpha(maxMinCOC.x)) * foreground.a);
         color = mix(background.rgb, foreground.rgb, alpha);
-
     }
 
     imageStore(mainDataImage, texel, vec4(color, alpha));
@@ -256,11 +255,11 @@ void main()
     ivec2 texel = ivec2(gl_GlobalInvocationID.xy);
     vec2 uv = texelToUv(texel);
 
-    vec2 maxMinCOC = imageLoad(tileDataNeighborhoodImage, texel / 2).yz;
+    vec2 maxMinCOC = imageLoad(tileDataNeighborhoodImage, texel >> 1).yz;
     vec3 centerColor = imageLoad(prefilterImage, texel).rgb;
     vec3 centerPresort = imageLoad(presortImage, texel).rgb;
 
-    // float originalCOC = imageLoad(tileDataImage, texel / 2).w;
+    // float originalCOC = imageLoad(tileDataImage, texel >> 1).w;
 
     vec2 screenCoord = gl_GlobalInvocationID.xy * 2.0f * viewPixelSize;
 	vec2 clipCoord = screenCoord * 2.0f - 1.0f;
@@ -293,14 +292,14 @@ void main()
             uint endIdx = ringSampleCount[j];
 
             // Rotate the sample points per ring to reduce artifacts
-            float noise = TemporalIGN(texel, j, int(frameTime) % 32) * TAU * rcp(ringSampleCount[j]);
+            float noise = TemporalIGN(texel, j, int(frameTime) % 32) * TAU * 0.16667f * rcp(ringSampleCount[j]);
             vec2 cossin = cossin(noise);
             mat2 rot = mat2(cossin.x, -cossin.y, cossin.y, cossin.x);
 
             for (uint i = startIdx; i < endIdx; ++i)
             {
                 // vec2 noise = vec2(BlueNoiseTemporal(texel.xy + ivec2(i,j))) * 0.125f * (float(j) * rcp(float(ringCount)));
-                vec2 offset = hexprecomputedBokehOffsets[i] * rot;
+                vec2 offset = hexPrecomputedBokehOffsets[i] * rot;
 
                 #ifdef DOF_CAT_EYE_EFFECT
                     offset = ApplyCatEyeEffect(uv, vec2(0.5f), offset);
@@ -329,7 +328,7 @@ void main()
     else// Expensive
     {
         // Center data
-        float centerCOC = imageLoad(tileDataImage, texel / 2).w;
+        float centerCOC = imageLoad(tileDataImage, texel >> 1).w;
         float centerBackgroundWeight = centerPresort.g;
         float centerForegroundWeight = centerPresort.b;
 
@@ -348,14 +347,14 @@ void main()
             uint startIdx = ringSampleCount[j - 1];
             uint endIdx = ringSampleCount[j];
 
-            float noise = TemporalIGN(texel, j, int(frameTime) % 32) * TAU * rcp(ringSampleCount[j]);
+            float noise = TemporalIGN(texel, j, int(frameTime) % 32) * TAU * 0.16667f  * rcp(ringSampleCount[j]);
             vec2 cossin = cossin(noise);
             mat2 rot = mat2(cossin.x, -cossin.y, cossin.y, cossin.x);
 
             for (uint i = startIdx; i < endIdx; ++i)
             {
 
-                vec2 offset = hexprecomputedBokehOffsets[i] * rot;
+                vec2 offset = hexPrecomputedBokehOffsets[i] * rot;
                 #ifdef DOF_CAT_EYE_EFFECT
                     offset = ApplyCatEyeEffect(uv, vec2(0.5f), offset);
                 #endif
@@ -370,7 +369,7 @@ void main()
                     sampleColor += textureLod(prefilter, sampleUV, 0.0f).rgb;
                 #endif
                 vec3 presort = imageLoad(presortImage, uvToTexel(sampleUV)).rgb;
-                float sampleCOC = imageLoad(tileDataImage, uvToTexel(sampleUV / 2)).w;
+                float sampleCOC = imageLoad(tileDataImage, uvToTexel(sampleUV * SafeRcp(2.0f))).w;
 
                 float spreadCmp = SpreadCmp(j, sampleCOC, spreadScale);
 
@@ -390,7 +389,7 @@ void main()
         background.rgb *= SafeRcp(background.a);
         foreground.rgb *= SafeRcp(foreground.a);
 
-        const float growForegroundSolid = 2.0f;
+        // const float growForegroundSolid = 2.0f;
         float totalSamples = float(ringSampleCount[ringCount]);
         alpha = saturate(SafeRcp(totalSamples) * SafeRcp(SampleAlpha(maxMinCOC.x)) * foreground.a);
         color = mix(background.rgb, foreground.rgb, alpha);

@@ -97,5 +97,5 @@ void main()
     barrier();
 
     vec4 writeResult = vec4(outputTileData, originalCOC);
-    imageStore(tileDataImage, texel / 2, writeResult);
+    imageStore(tileDataImage, texel >> 1, writeResult);
 }
