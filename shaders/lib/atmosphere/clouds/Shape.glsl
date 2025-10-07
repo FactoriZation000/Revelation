@@ -229,7 +229,7 @@ float CloudVolumeDensity(in vec3 rayPos, out float heightFraction, out float dim
 	dimensionalProfile = saturate(verticalProfile * coverage);
 	// if (dimensionalProfile < cloudEpsilon) return 0.0;
 
-	vec3 position = (rayPos - windOffset * 0.5) * 3e-4;
+	vec3 position = rayPos * 3e-4;
 
 	// Perlin-worley + fBm worley noise for base shape
 	float baseNoise = curve(texture(baseNoiseTex, position).x);
@@ -241,20 +241,21 @@ float CloudVolumeDensity(in vec3 rayPos, out float heightFraction, out float dim
 	float detailNoise = 0.5;
 	#if !defined PASS_SKY_VIEW
 	if (detail) {
-		vec3 curlNoise = texture(curlNoiseTex, position.xz * 2.0).xyz;
-		position += curlNoise * 0.05 * oms(heightFraction) - windOffset * 1e-3;
+		// vec3 curlNoise = texture(curlNoiseTex, position.xz * 2.0).xyz;
+		position += /* curlNoise * 0.05 * oms(heightFraction) -  */windOffset * 1e-4;
 
 		// fBm worley noise for detail shape
 		detailNoise = texture(detailNoiseTex, position * 8.0).x;
 
 		// Transition from wispy shapes to billowy shapes over height
-		detailNoise = mix(detailNoise, 1.0 - detailNoise, saturate(heightFraction * 8.0));
+		// detailNoise = mix(detailNoise, 1.0 - detailNoise, saturate(heightFraction * 8.0));
 	}
 	#endif
 	cloudDensity = remap(detailNoise * 0.25, 1.0, cloudDensity);
 
 	// Density profile
-	return approxSqrt(cloudDensity) * saturate(heightFraction * 2.0);
+	float densityProfile = saturate(heightFraction * 2.5) * saturate(5.0 - heightFraction * 5.0);
+	return approxSqrt(cloudDensity) * densityProfile;
 }
 
 #endif
