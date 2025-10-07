@@ -27,7 +27,6 @@ out vec3 sceneOut;
 
 writeonly uniform image2D colorimg8;
 
-uniform sampler3D atmosCombinedLut;
 uniform sampler2D cloudOriginTex;
 
 #include "/lib/universal/Uniform.glsl"
@@ -57,7 +56,7 @@ uniform sampler2D cloudOriginTex;
 #include "/lib/lighting/Common.glsl"
 #include "/lib/lighting/shadow/Render.glsl"
 
-#if AO_ENABLED > 0 && !defined SSPT_ENABLED
+#if AO_ENABLED > 0 && !defined SSILVB_ENABLED
 	#include "/lib/lighting/SSAO.glsl"
 	#include "/lib/lighting/GTAO.glsl"
 #endif
@@ -146,7 +145,7 @@ void main() {
 			// Compute rain puddles
 			#ifdef RAIN_PUDDLES
 				if (wetnessCustom > 1e-2) {
-					if (clamp(materialID, 9u, 12u) != materialID && materialID != 20u && materialID != 40u) {
+					if (clamp(materialID, 1000u, 1002u) != materialID && materialID != 20u && materialID != 40u) {
 						CalculateRainPuddles(albedo, worldNormal, specularTex.rgb, worldPos, flatNormal, lightmap.y);
 					}
 				}
@@ -162,7 +161,7 @@ void main() {
 		#if SUBSURFACE_SCATTERING_MODE < 2
 			// Hard-coded sss amount for certain materials
 			switch (materialID) {
-				case 9u: case 10u: case 11u: case 12u: case 27u: case 28u: // Plants
+				case 1000u: case 1001u: case 1002u: case 1003u: case 27u: case 28u: // Plants
 					sssAmount = 0.6;
 					break;
 				case 13u: // Leaves
@@ -187,7 +186,7 @@ void main() {
 		sssAmount = remap(64.0 * r255, 1.0, sssAmount) * eyeSkylightSmooth * SUBSURFACE_SCATTERING_STRENGTH;
 
 		// Ambient occlusion
-		#if AO_ENABLED > 0 && !defined SSPT_ENABLED
+		#if AO_ENABLED > 0 && !defined SSILVB_ENABLED
 			vec3 ao = vec3(1.0);
 			#if AO_ENABLED == 1
 				ao.x = CalculateSSAO(screenCoord, viewPos, viewNormal, SampleStbnUnitvec2(screenTexel, frameCounter));
@@ -303,7 +302,7 @@ void main() {
 		}
 
 		// Skylight and bounced sunlight
-		#ifndef SSPT_ENABLED
+		#ifndef SSILVB_ENABLED
 			if (lightmap.y > EPS) {
 				// Skylight
 				vec3 skylight = lightningShading;
@@ -314,12 +313,10 @@ void main() {
 
 				sceneOut += skylight * cube(lightmap.y) * ao;
 
-			#ifndef RSM_ENABLED
 				// Bounced sunlight
 				float bounce = CalculateApproxBouncedLight(worldNormal);
 				bounce *= pow5(lightmap.y);
 				sceneOut += bounce * sunlightMult * ao;
-			#endif
 			}
 		#endif
 
@@ -331,7 +328,7 @@ void main() {
 		#if EMISSIVE_MODE < 2
 			// Hard-coded emissive
 			vec4 emissive = HardCodeEmissive(materialID, albedo, worldPos, blocklightColor);
-			#ifndef SSPT_ENABLED
+			#ifndef SSILVB_ENABLED
 				if (emissive.a * lightmap.x > 1e-5) {
 					lightmap.x = CalculateBlocklightFalloff(lightmap.x);
 					sceneOut += lightmap.x * emissive.a * (ao * oms(lightmap.x) + lightmap.x) * blocklightColor;
@@ -339,7 +336,7 @@ void main() {
 			#endif
 
 			sceneOut += emissive.rgb * EMISSIVE_BRIGHTNESS;
-		#elif !defined SSPT_ENABLED
+		#elif !defined SSILVB_ENABLED
 			lightmap.x = CalculateBlocklightFalloff(lightmap.x);
 			sceneOut += lightmap.x * (ao * oms(lightmap.x) + lightmap.x) * blocklightColor;
 		#endif
@@ -397,17 +394,13 @@ void main() {
 		#endif
 
 		// Indirect diffuse lighting
-		#ifdef SSPT_ENABLED
+		#ifdef SSILVB_ENABLED
 			#ifdef SVGF_ENABLED
 				float NdotV = abs(dot(worldNormal, worldDir));
-				sceneOut += SpatialUpscale5x5(screenTexel >> 1, worldNormal, length(viewPos), NdotV);
+				sceneOut += SpatialUpscale(screenTexel >> 1, worldNormal, length(viewPos), NdotV);
 			#else
 				sceneOut += texelFetch(colortex3, screenTexel >> 1, 0).rgb;
 			#endif
-		#elif defined RSM_ENABLED
-			float NdotV = abs(dot(worldNormal, worldDir));
-			vec3 rsm = SpatialUpscale5x5(screenTexel >> 1, worldNormal, length(viewPos), NdotV);
-			sceneOut += rsm * ao * sunlightMult;
 		#endif
 
 		// Minimal ambient light

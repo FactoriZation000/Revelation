@@ -80,10 +80,6 @@ option.GALAXY=银河
 option.GALAXY_INTENSITY=银河亮度
 option.GALAXY_SOLAR_POS=银河方位
 
-option.CREPUSCULAR_RAYS=云隙光
-option.CREPUSCULAR_RAYS_INTENSITY=云隙光强度
-option.CREPUSCULAR_RAYS_SAMPLES=云隙光采样数
-
 option.RAINBOWS=彩虹
 option.RAINBOWS_PRIMARY_INTENSITY=主虹能见度
 option.RAINBOWS_SECONDARY_INTENSITY=副虹能见度
@@ -244,22 +240,17 @@ option.AO_MULTI_BOUNCE=多重散射拟合
 option.SSAO_SAMPLES=SSAO采样数
 option.SSAO_STRENGTH=SSAO强度
 
-option.GTAO_SLICES=GTAO切片采样数
+option.GTAO_SLICES=GTAO方向采样数
 option.GTAO_DIRECTION_SAMPLES=GTAO步进采样数
 option.GTAO_RADIUS=GTAO半径
 
-option.RSM_ENABLED=反射阴影贴图(RSM)
-option.RSM_SAMPLES=RSM采样数
-option.RSM_RADIUS=RSM半径
-option.RSM_BRIGHTNESS=RSM亮度
-option.RSM_MAX_ACCUM_FRAMES=最大累积帧数
-
-option.SSPT_ENABLED=屏幕空间路径追踪(SSPT)
-option.SSPT_SPP=每像素采样数
-option.SSPT_BOUNCES=光线反弹次数
-option.SSPT_RT_STEPS=追踪步进次数
-option.SSPT_BLENDED_LIGHTMAP=Lightmap混合
-option.SSPT_MAX_ACCUM_FRAMES=最大累积帧数
+option.SSILVB_ENABLED=SSILVB全局光照
+option.SSILVB_SLICE_COUNT=方向采样数
+option.SSILVB_SAMPLE_COUNT=步进采样数
+option.SSILVB_SECTOR_COUNT=位掩码质量
+option.SSILVB_HIT_THICKNESS=命中厚度
+option.SSILVB_BLENDED_LIGHTMAP=Lightmap混合
+option.SSILVB_MAX_ACCUM_FRAMES=最大累积帧数
 
 option.SVGF_ENABLED=时空方差导向过滤(SVGF)
 

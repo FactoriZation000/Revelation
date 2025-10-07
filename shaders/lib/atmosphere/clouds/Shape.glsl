@@ -126,7 +126,7 @@ float CloudHighDensity(in vec2 rayPos) {
 	}
 	#endif
 	#ifdef CLOUD_CIRRUS
-	else {
+	if (localCoverage < 0.6) {
 		/* Cirrus clouds */
 		vec2 position = (rayPos - windOffset) * 3e-7 + curlNoise * 1e-3;
 		windOffset *= 2e-7;
@@ -188,15 +188,13 @@ float CloudHighDensity(in vec2 rayPos) {
 		return texture(verticalLut, vec2(cloudType, heightFraction)).x;
 	}
 #else
-	// Adapted from https://github.com/iamlivehaha/Project-VolumetricCloudRendering
-	float GetVerticalProfile(in float relativeHeight, in float cloudType) {
-		float stratus = remap(0.2, 0.1, relativeHeight);
-		float cumulus = remap(0.7, 0.2, relativeHeight);
-		float altocumulus = remap(1.0, 0.7, relativeHeight);
+	float GetVerticalProfile(in float heightFraction, in float cloudType) {
+		float stratus = saturate(heightFraction * 16.0) * remap(0.2, 0.1, heightFraction);
+		float stratocumulus = saturate(heightFraction * 6.0) * remap(0.7, 0.2, heightFraction);
+		float cumulus = saturate(heightFraction * 8.0) * remap(1.0, 0.7, heightFraction);
 
-		float verticalProfile = mix(stratus, cumulus, saturate(cloudType * 2.0));
-		verticalProfile = mix(verticalProfile, altocumulus, saturate(cloudType * 2.0 - 1.0));
-		return verticalProfile * saturate(relativeHeight * (12.0 - 8.0 * cloudType));
+		float verticalProfile = mix(stratus, stratocumulus, saturate(cloudType * 2.0));
+		return mix(verticalProfile, cumulus, curve(saturate(cloudType * 2.0 - 1.0)));
 	}
 #endif
 
@@ -219,12 +217,13 @@ float CloudVolumeDensity(in vec3 rayPos, out float heightFraction, out float dim
 	vec2 cloudMap = texture(cloudMapTex, rayPos.xz * rcp(cloudMapCovDist)).xy;
 
 	// Coveage profile
-	float coverage = saturate(cloudMap.x * (4.0 * CLOUD_CU_COVERAGE)) + wetness * 0.5;
+	float coverage = saturate(mix(cloudMap.x, cloudMap.y + 0.2, sqr(wetness) * 0.75) * (4.0 * CLOUD_CU_COVERAGE));
 	// coverage = pow(coverage, remap(heightFraction, 0.7, 0.8, 1.0, 1.0 - 0.5 * anvilBias));
 	if (coverage < 0.25) return 0.0;
 
 	// Vertical profile
-	float verticalProfile = GetVerticalProfile(heightFraction, cloudMap.y);
+	float cloudType = cloudMap.y * coverage * 0.65;
+	float verticalProfile = GetVerticalProfile(heightFraction, saturate(cloudType));
 
 	dimensionalProfile = saturate(verticalProfile * coverage);
 	// if (dimensionalProfile < cloudEpsilon) return 0.0;
@@ -234,7 +233,7 @@ float CloudVolumeDensity(in vec3 rayPos, out float heightFraction, out float dim
 	// Perlin-worley + fBm worley noise for base shape
 	float baseNoise = curve(texture(baseNoiseTex, position).x);
 
-	float cloudDensity = saturate(dimensionalProfile + baseNoise - 1.0);
+	float cloudDensity = ValueErosion(dimensionalProfile, 1.0 - baseNoise);
 	if (cloudDensity < cloudEpsilon) return 0.0;
 
 	// Detail erosion

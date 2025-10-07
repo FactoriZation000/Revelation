@@ -19,7 +19,6 @@ const float max32f		 = 4294967295.0;
 
 #define rcp(x) 			 (1.0 / (x))
 #define oms(x) 	 		 (1.0 - (x))
-#define fastExp(x) 		 exp2((x) * rLOG2)
 #define max0(x) 		 max(x, 0.0)
 #define min1(x) 		 min(x, 1.0)
 #define maxEps(x) 		 max(x, EPS)
@@ -109,6 +108,13 @@ float almostUnitIdentity(in float x) {
     return x * x * (2.0 - x);
 }
 
+// Quadratic polynomial smooth-min function from https://www.iquilezles.org/www/articles/smin/smin.htm
+float smin(in float a, in float b, in float k) {
+    k *= 4.0;
+    float h = max0(k - abs(a - b)) / k;
+    return min(a, b) - h * h * k * 0.25;
+}
+
 float fastSign(in float x) {
     return uintBitsToFloat((floatBitsToUint(x) & 0x80000000u) | 0x3F800000u);
 }
@@ -173,9 +179,8 @@ float quarticLength(in vec2 v) {
 //================================================================================================//
 
 mat3 ConstructTBN(in vec3 n) {
-	vec3 t = normalize(vec3(abs(n.y) + n.z, 0.0, -n.x));
-	vec3 b = normalize(cross(t, n));
-	return mat3(t, b, n);
+	vec3 b = normalize(vec3(0.0, n.z, -n.y));
+	return mat3(cross(b, n), b, n);
 }
 
 mat2 rotateMat(in float angle) {
