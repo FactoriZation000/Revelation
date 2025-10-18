@@ -16,16 +16,16 @@ screen.Weather=天气
 screen.Foliage=植物
 
 screen.Clouds=云设置
-screen.CrepuscularRays=云隙光
-screen.Rainbows=彩虹
+screen.CloudUpsampling=升采样
+screen.CloudLighting=光照
 
-screen.CloudLighting=云光照
 screen.LowLevelClouds=低云族
 screen.MidLevelClouds=中云族
 screen.HighLevelClouds=高云族
 
 screen.Fog=雾
 screen.Volumetric=体积雾
+screen.Rainbows=彩虹
 
 screen.GlobalIllumination=全局光照
 screen.AmbientOcclusion=环境光遮蔽
@@ -92,7 +92,7 @@ suffix.CLOUD_TAAU_SCALE=x
 
 option.CLOUD_TAAU_CLIPPING=椭球交裁切
 option.CLOUD_MAX_ACCUM_FRAMES=最大累积帧数
-option.CLOUD_AERIAL_PERSPECTIVE=大气透视
+option.CLOUD_TAAU_ANTIFLICKER=抗闪烁
 
 option.CLOUD_MS_COUNT=多重散射次数
 option.CLOUD_MS_FALLOFF_E=消光衰减
@@ -332,10 +332,11 @@ option.SELECTION_BOX_COLOR_B=选择框颜色-§1蓝
 # Post-Processing
 option.TAA_ENABLED=时域抗锯齿(TAA)
 option.TAA_CLOSEST_FRAGMENT=片元择邻
+option.TAA_SHARPEN=锐化
 option.TAA_CLIPPING=椭球交裁切
 option.TAA_AGGRESSION=裁切容差
 option.TAA_MAX_ACCUM_FRAMES=最大累积帧数
-option.TAA_SHARPEN=锐化
+option.TAA_ANTIFLICKER=抗闪烁
 
 option.MOTION_BLUR=动态模糊
 option.MOTION_BLUR_SAMPLES=动态模糊采样数
@@ -434,9 +435,9 @@ option.FORCE_DISABLE_SUBGROUP_OPS=§4强制禁用子组操作
 option.WHITE_WORLD=纯白世界
 option.DEBUG_BLOOM_TILES=DEBUG_BLOOM_TILES
 option.DEBUG_CLOUD_SHADOWS=DEBUG_CLOUD_SHADOWS
-option.DEBUG_GI=DEBUG_GI
+option.DEBUG_CLOUD_MAP=DEBUG_CLOUD_MAP
 option.DEBUG_NORMALS=DEBUG_NORMALS
 option.DEBUG_RESHADING=DEBUG_RESHADING
-option.DEBUG_SKYVIEW=DEBUG_SKYVIEW
+option.DEBUG_SKY_MAP=DEBUG_SKY_MAP
 option.DEBUG_SKY_COLOR=DEBUG_SKY_COLOR
 

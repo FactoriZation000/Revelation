@@ -1,6 +1,6 @@
 // From https://iquilezles.org/www/articles/texture/texture.htm
 vec4 textureSmoothFilter(in sampler2D tex, in vec2 coord) {
-	vec2 res = textureSize(tex, 0);
+	vec2 res = vec2(textureSize(tex, 0));
 
 	coord = coord * res + 0.5;
 
@@ -24,7 +24,7 @@ vec4 cubic(in float v) {
 }
 
 vec4 textureBicubic(in sampler2D tex, in vec2 coord) {
-	vec2 res = textureSize(tex, 0);
+	vec2 res = vec2(textureSize(tex, 0));
 
 	coord = coord * res - 0.5;
 
@@ -51,8 +51,8 @@ vec4 textureBicubic(in sampler2D tex, in vec2 coord) {
     return mix(mix(sample3, sample2, sx), mix(sample1, sample0, sx), sy);
 }
 
-vec4 textureBicubicLod(in sampler2D tex, in vec2 coord, in int lod) {
-	vec2 res = textureSize(tex, 0);
+vec4 textureBicubicLod(in sampler2D tex, in vec2 coord, in float lod) {
+	vec2 res = vec2(textureSize(tex, 0));
 
 	coord = coord * res - 0.5;
 
@@ -80,7 +80,7 @@ vec4 textureBicubicLod(in sampler2D tex, in vec2 coord, in int lod) {
 }
 
 vec4 textureSmooth(in sampler2D tex, in vec2 coord) {
-	vec2 res = textureSize(tex, 0);
+	vec2 res = vec2(textureSize(tex, 0));
 
 	coord = coord * res - 0.5;
 
@@ -107,10 +107,10 @@ vec4 catmullRom(in float f) {
 
 // Approximation from SMAA presentation [Jimenez 2016]
 vec4 textureCatmullRomFast(in sampler2D tex, in vec2 coord) {
-    vec2 resolution = textureSize(tex, 0);
-    vec2 pixelSize = 1.0 / resolution;
+	vec2 res = vec2(textureSize(tex, 0));
+    vec2 pixelSize = 1.0 / res;
 
-    vec2 pos = coord * resolution;
+    vec2 pos = coord * res;
     vec2 tc1 = floor(pos - 0.5) + 0.5;
     vec2 f  = pos - tc1;
     vec2 f2 = f * f;
@@ -167,7 +167,7 @@ float lanczos2(in float x) {
 vec4 textureLanczos(in sampler2D tex, in vec2 coord) {
 	const int radius = 2;
 
-	vec2 res = textureSize(tex, 0);
+	vec2 res = vec2(textureSize(tex, 0));
 	coord = coord * res - 0.5;
 
     vec2 p = floor(coord);
@@ -192,4 +192,20 @@ vec4 textureLanczos(in sampler2D tex, in vec2 coord) {
     }
 
     return sum * rcp(sumWeight);
+}
+
+vec4 textureTiling(in sampler2D tex, in vec2 coord) {
+	vec2 p = coord - 0.5;
+
+    vec2 weight0 = curve(abs(fract(p) * 2.0 - 1.0));
+    vec2 weight1 = curve(abs(fract(p + vec2(0.5, 0.5)) * 2.0 - 1.0));
+    vec2 weight2 = curve(abs(fract(p + vec2(1.0, 0.5)) * 2.0 - 1.0));
+    vec2 weight3 = curve(abs(fract(p + vec2(0.5, 1.0)) * 2.0 - 1.0));
+
+    vec4 sample0 = texture(tex, coord) * weight0.x * weight0.y;
+    vec4 sample1 = texture(tex, coord + vec2(0.5, 0.5)) * weight1.x * weight1.y;
+    vec4 sample2 = texture(tex, coord + vec2(1.0, 0.5)) * weight2.x * weight2.y;
+    vec4 sample3 = texture(tex, coord + vec2(0.5, 1.0)) * weight3.x * weight3.y;
+
+    return sample0 + sample1 + sample2 + sample3;
 }

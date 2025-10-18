@@ -17,12 +17,13 @@ vec4 CalculateSpecularReflections(Material material, in vec3 worldNormal, in vec
 
 		vec4 reflection = vec4(0.0);
 		if (hit) {
-			reflection.rgb = texelFetch(colortex4, ivec2(screenPos.xy) >> 1, 0).rgb;
+			ivec2 texel = uvToTexel(screenPos.xy);
+			reflection.rgb = texture(colortex4, screenPos.xy * 0.5, 0).rgb;
 
-			vec3 reflectViewPos = ScreenToViewSpace(vec3(screenPos.xy * viewPixelSize, loadDepth0(ivec2(screenPos.xy))));
+			vec3 reflectViewPos = ScreenToViewSpace(vec3(screenPos.xy, loadDepth0(texel)));
 			reflection.a = distance(reflectViewPos, viewPos);
 		} else if (skylight > 1e-3) {
-			vec3 skyRadiance = textureBicubic(skyViewTex, FromSkyViewLutParams(lightDir) + vec2(0.0, 0.5)).rgb;
+			vec3 skyRadiance = textureBicubic(skyMapTex, ProjectSky(lightDir)).rgb;
 
 			reflection = vec4(skyRadiance * skylight, far);
 		}
@@ -42,14 +43,13 @@ vec4 CalculateSpecularReflections(Material material, in vec3 worldNormal, in vec
 
 		vec3 reflection = vec3(0.0);
 		if (skylight > 1e-3) {
-			vec3 skyRadiance = textureBicubic(skyViewTex, FromSkyViewLutParams(lightDir) + vec2(0.0, 0.5)).rgb;
+			vec3 skyRadiance = textureBicubic(skyMapTex, ProjectSky(lightDir)).rgb;
 
 			reflection = skyRadiance * skylight;
 		}
 
 		bool hit = ScreenSpaceRaytrace(viewPos, mat3(gbufferModelView) * lightDir, dither, SSRT_MAX_SAMPLES, screenPos);
 		if (hit) {
-			screenPos.xy *= viewPixelSize;
 			float edgeFade = screenPos.x * screenPos.y * oms(screenPos.x) * oms(screenPos.y);
 			edgeFade *= 1e2 + cube(saturate(1.0 - gbufferModelViewInverse[2].y)) * 3e3;
 			reflection += (texture(colortex4, screenPos.xy * 0.5).rgb - reflection) * saturate(edgeFade);

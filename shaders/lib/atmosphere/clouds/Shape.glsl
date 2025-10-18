@@ -88,76 +88,6 @@ float CloudMidDensity(in vec2 rayPos) {
 	}
 }
 
-#if 1
-float CloudHighDensity(in vec2 rayPos) {
-	// Wind field
-	const float windAngle = radians(30.0);
-	const vec2 windVelocity = vec2(cos(windAngle), sin(windAngle)) * CLOUD_HIGH_WIND_SPEED;
-	vec2 windOffset = windVelocity * worldTimeCounter;
-
-	// Curl noise to simulate wind, makes the positioning of the clouds more natural
-	vec2 curlNoise = texture(curlNoiseTex, rayPos * 1e-4).xy * 0.03;
-
-	float localCoverage = GetSmoothNoise((rayPos - windOffset * 0.25) * 2e-5 + curlNoise);
-	float density = 0.0;
-
-	#ifdef CLOUD_CIRROCUMULUS
-	if (localCoverage > 0.5) {
-		/* Cirrocumulus clouds */
-		vec2 position = (rayPos - windOffset) * 1e-4 - curlNoise - localCoverage;
-
-		float baseCoverage = saturate(texture(noisetex, position * 0.002).y * 2.0 - 0.3);
-		baseCoverage = remap(baseCoverage, 1.0, texture(noisetex, position * 0.06).z);
-
-		if (baseCoverage > cloudEpsilon) {
-			windOffset *= 5e-5;
-			position -= windOffset;
-
-			float cirrocumulus = 0.4 * texture(noisetex, position * vec2(0.5, 0.2)).z;
-			cirrocumulus += 0.75 * texture(noisetex, position - windOffset + cirrocumulus * 0.125).z;
-			cirrocumulus *= cirrocumulus * cirrocumulus;
-
-			float coverage = saturate((baseCoverage + localCoverage) * (1.0 + CLOUD_CC_COVERAGE) - 1.0);
-			cirrocumulus = mix(cirrocumulus * cirrocumulus, cirrocumulus, coverage);
-			cirrocumulus *= sqr(saturate(coverage * 2.0));
-
-			density += cube(cirrocumulus) * 8.0;
-		}
-	}
-	#endif
-	#ifdef CLOUD_CIRRUS
-	if (localCoverage < 0.6) {
-		/* Cirrus clouds */
-		vec2 position = (rayPos - windOffset) * 3e-7 + curlNoise * 1e-3;
-		windOffset *= 2e-7;
-
-		const vec2 angle = cossin(goldenAngle);
-		const mat2 rot = mat2(angle, -angle.y, angle.x);
-		vec2 scale = vec2(2.5, 2.0);
-
-		float weight = 0.55;
-		float cirrus = 1.0 - texture(noisetex, position * vec2(0.75, 1.25)).x;
-
-		// Cirrus FBM
-		for (uint i = 0u; i < 5u; ++i, scale *= vec2(0.75, 1.25)) {
-			position += (cirrus + curlNoise) * 2e-3 - windOffset;
-
-			position = rot * position * scale;
-			cirrus += oms(texture(noisetex, position).x) * weight;
-			weight *= 0.55;
-		}
-		cirrus -= saturate(localCoverage * 2.0 - 0.75);
-		cirrus = saturate(cirrus * (1.0 + CLOUD_CI_COVERAGE) - 1.5);
-
-		density += pow4(cirrus);
-	}
-	#endif
-
-	return density;
-}
-
-#else
-
 // Adapted from [Schneider, 2022]
 float CloudHighDensity(in vec2 rayPos) {
 	// Wind field
@@ -165,21 +95,48 @@ float CloudHighDensity(in vec2 rayPos) {
 	const vec2 windVelocity = vec2(cos(windAngle), sin(windAngle)) * CLOUD_HIGH_WIND_SPEED;
 	vec2 windOffset = windVelocity * worldTimeCounter;
 
-	vec2 position = (rayPos - windOffset) * 1e-4;
+	// Curl noise to simulate wind, makes the positioning of the clouds more natural
+	vec2 curlNoise = texture(curlNoiseTex, rayPos * 1e-4).xy * 0.02;
+	vec2 position = (rayPos - windOffset) * 1e-4 + curlNoise;
 
-	float coverage = saturate(texture(noisetex, position * 0.002).y * 2.0 - 0.25);
-	coverage = remap(coverage, 1.0, texture(noisetex, position * 0.05).z);
-	float cloudType = saturate(texture(noisetex, position * 2e-4).z * 2.0 - 0.5);
+	float density = 0.0;
 
-	vec3 cirroCloud = texture(cirroClouds, position * 0.5).xyz;
+	#ifdef CLOUD_CIRRUS
+	/* Cirrus clouds */
+	{
+		float coverage = CLOUD_CI_COVERAGE - 1.25 + texture(cloudMapTex, position * 0.01).x;
+		coverage = saturate(coverage + texture(noisetex, position * 0.02).z);
+		position -= coverage * 0.25;
 
-	float density = remap(cloudType, 0.5, 1.0, remap(cloudType, 0.0, 0.5, cirroCloud.r, cirroCloud.g), cirroCloud.b);
-	density = pow(density, 2.0 - coverage * 1.75);
-	density *= saturate(2.0 * cube(coverage));
+		if (coverage > 0.1) {
+			float cirrus = texture(nubisCirroTex, (position - windOffset * 1e-4) * 0.3).x;
+			cirrus *= cirrus * saturate(cirrus + coverage) * 2.0;
+			cirrus *= smoothstep(0.1, 0.9, coverage);
 
-	return sqr(4.0 * density);
+			density += cirrus;
+		}
+	}
+	#endif
+	#ifdef CLOUD_CIRROCUMULUS
+	/* Cirrocumulus clouds */
+	{
+		float coverage = CLOUD_CC_COVERAGE - saturate(texture(noisetex, position * 0.01).z * 1.75);
+		coverage = saturate(texture(noisetex, position * 0.05).z + coverage);
+
+		if (coverage > 0.2) {
+			float cirrocumulus = texture(nubisCirroTex, (position - windOffset * 1e-4) * 0.3).z;
+			cirrocumulus += texture(noisetex, position).z * 0.7 - 0.25;
+
+			cirrocumulus *= cirrocumulus * saturate(cirrocumulus + coverage) * 2.0;
+			cirrocumulus *= smoothstep(0.2, 0.8, coverage);
+
+			density += sqr(saturate(cirrocumulus));
+		}
+	}
+	#endif
+
+	return density * 4.0;
 }
-#endif
 
 //================================================================================================//
 
@@ -189,19 +146,19 @@ float CloudHighDensity(in vec2 rayPos) {
 	}
 #else
 	float GetVerticalProfile(in float heightFraction, in float cloudType) {
-		float stratus = saturate(heightFraction * 16.0) * remap(0.2, 0.1, heightFraction);
+		float stratus = remap(0.25, 0.05, heightFraction);
 		float stratocumulus = saturate(heightFraction * 6.0) * remap(0.7, 0.2, heightFraction);
-		float cumulus = saturate(heightFraction * 8.0) * remap(1.0, 0.7, heightFraction);
+		float cumulus = saturate(heightFraction * 8.0) * remap(1.0, 0.6, heightFraction);
 
 		float verticalProfile = mix(stratus, stratocumulus, saturate(cloudType * 2.0));
-		return mix(verticalProfile, cumulus, curve(saturate(cloudType * 2.0 - 1.0)));
+		return mix(verticalProfile, cumulus, saturate(cloudType * 2.0 - 1.0));
 	}
 #endif
 
 float CloudVolumeDensity(in vec3 rayPos, out float heightFraction, out float dimensionalProfile, in bool detail) {
 	// Remap the height of the clouds to the range of [0, 1]
 	float rayRadius = sdot(rayPos); rayRadius *= inversesqrt(rayRadius);
-	heightFraction = saturate((rayRadius - cumulusBottomRadius) * rcp(CLOUD_CU_THICKNESS));
+	heightFraction = saturate((rayRadius - cumulusBottomRadius) * rcp(cumulusThickness));
 
 	// Wind field
 	const float windAngle = radians(45.0);
@@ -214,7 +171,7 @@ float CloudVolumeDensity(in vec3 rayPos, out float heightFraction, out float dim
 	rayPos.xz += cameraPosition.xz;
 
 	// Sample cloud map
-	vec2 cloudMap = texture(cloudMapTex, rayPos.xz * rcp(cloudMapCovDist)).xy;
+	vec2 cloudMap = texture(cloudMapTex, rayPos.xz * rcp(cloudMapExtend)).xy;
 
 	// Coveage profile
 	float coverage = saturate(mix(cloudMap.x, cloudMap.y + 0.2, sqr(wetness) * 0.75) * (4.0 * CLOUD_CU_COVERAGE));
@@ -222,8 +179,8 @@ float CloudVolumeDensity(in vec3 rayPos, out float heightFraction, out float dim
 	if (coverage < 0.25) return 0.0;
 
 	// Vertical profile
-	float cloudType = cloudMap.y * coverage * 0.65;
-	float verticalProfile = GetVerticalProfile(heightFraction, saturate(cloudType));
+	float cloudType = cloudMap.y * sqr(coverage);
+	float verticalProfile = GetVerticalProfile(heightFraction, cloudType);
 
 	dimensionalProfile = saturate(verticalProfile * coverage);
 	// if (dimensionalProfile < cloudEpsilon) return 0.0;
@@ -238,7 +195,7 @@ float CloudVolumeDensity(in vec3 rayPos, out float heightFraction, out float dim
 
 	// Detail erosion
 	float detailNoise = 0.5;
-	#if !defined PASS_SKY_VIEW
+	#if !defined PASS_SKY_MAP
 	if (detail) {
 		// vec3 curlNoise = texture(curlNoiseTex, position.xz * 2.0).xyz;
 		position += /* curlNoise * 0.05 * oms(heightFraction) -  */windOffset * 1e-4;
@@ -247,13 +204,14 @@ float CloudVolumeDensity(in vec3 rayPos, out float heightFraction, out float dim
 		detailNoise = texture(detailNoiseTex, position * 8.0).x;
 
 		// Transition from wispy shapes to billowy shapes over height
-		// detailNoise = mix(detailNoise, 1.0 - detailNoise, saturate(heightFraction * 8.0));
+		// detailNoise = mix(1.0 - detailNoise, detailNoise, saturate(heightFraction * 8.0));
 	}
 	#endif
-	cloudDensity = remap(detailNoise * 0.25, 1.0, cloudDensity);
+	cloudDensity = remap(sqr(detailNoise) * sqr(0.7 - heightFraction * 0.5), 1.0, cloudDensity);
 
 	// Density profile
-	float densityProfile = saturate(heightFraction * 2.5) * saturate(5.0 - heightFraction * 5.0);
+	float densityProfile = sqr(saturate(heightFraction * 4.0));
+	densityProfile *= saturate(5.0 - heightFraction * 5.0);
 	return approxSqrt(cloudDensity) * densityProfile;
 }
 

@@ -3,10 +3,13 @@
 
 // #define PLANET_GROUND
 
-#define ATMOSPHERE_BOTTOM_ALTITUDE  0.0 // [0.0 500.0 1000.0 2000.0 3000.0 4000.0 5000.0 6000.0 7000.0 8000.0 9000.0 10000.0 11000.0 12000.0 13000.0 14000.0 15000.0 16000.0]
-#define ATMOSPHERE_TOP_ALTITUDE     100000.0 // [0.0 5000.0 10000.0 20000.0 30000.0 40000.0 50000.0 60000.0 70000.0 80000.0 90000.0 100000.0 110000.0 120000.0 130000.0 140000.0 150000.0 160000.0]
+#define ATMOSPHERE_BOTTOM_ALTITUDE  2000.0 // [0.0 500.0 1000.0 2000.0 3000.0 4000.0 5000.0 6000.0 7000.0 8000.0 9000.0 10000.0 11000.0 12000.0 13000.0 14000.0 15000.0 16000.0]
+#define ATMOSPHERE_TOP_ALTITUDE     80000.0 // [0.0 5000.0 10000.0 20000.0 30000.0 40000.0 50000.0 60000.0 70000.0 80000.0 90000.0 100000.0 110000.0 120000.0 130000.0 140000.0 150000.0 160000.0]
 
 #define VIEWER_BASE_ALTITUDE        64.0 // [0.0 32.0 64.0 128.0 256.0 512.0 1024.0 2048.0 4096.0 8192.0 16384.0 32768.0 65536.0 131072.0 262144.0 524288.0 1048576.0 2097152.0 4194304.0 8388608.0 16777216.0 33554432.0 67108864.0 134217728.0 268435456.0 536870912.0 1073741824.0]
+
+#define ProjectSky      OctEncodeUnorm
+#define UnprojectSky    OctDecodeUnorm
 
 //================================================================================================//
 
@@ -101,7 +104,7 @@ const AtmosphereParameters atmosphereModel = AtmosphereParameters(
 //    0.800000,
 //    DensityProfile(DensityProfileLayer[2](DensityProfileLayer(25.000000,0.000000,0.000000,0.066667,-0.666667),DensityProfileLayer(0.000000,0.000000,0.000000,-0.066667,2.666667))),
 //    vec3(0.000650, 0.001881, 0.000085),
-    vec3(0.07, 0.12, 0.2),
+    vec3(0.04, 0.06, 0.1),
     cos(radians(102.0))
 );
 
@@ -186,48 +189,4 @@ vec2 RaySphericalShellIntersection(in float r, in float mu, in float bottomRad, 
 	} else {
 		return vec2(-1.0);
 	}
-}
-
-//================================================================================================//
-
-#define UnitToSubUv(uv, res) (uv + 0.5 / res) * (res / (res + 2.0))
-#define SubToUnitUv(uv, res) (uv - 0.5 / res) * (res / (res - 2.0))
-
-// Reference: https://sebh.github.io/publications/egsr2020.pdf
-vec3 ToSkyViewLutParams(in vec2 coord) {
-	// To unit UV
-	coord = SubToUnitUv(coord, vec2(skyViewRes));
-
-	// Non-linear mapping of the altitude angle
-	coord.y = coord.y < 0.5 ? -sqr(1.0 - 2.0 * coord.y) : sqr(2.0 * coord.y - 1.0);
-
-    float horizonCos = rcp(viewerHeight * inversesqrt(viewerHeight * viewerHeight - atmosphere_bottom_radius_sq));
-    float horizonAngle = fastAcos(horizonCos);
-
-	float azimuthAngle = coord.x * TAU - PI;
-	float altitudeAngle = (coord.y + 1.0) * hPI - horizonAngle;
-
-	float altitudeCos = cos(altitudeAngle);
-
-	return vec3(altitudeCos * sin(azimuthAngle), sin(altitudeAngle), -altitudeCos * cos(azimuthAngle));
-}
-
-vec2 FromSkyViewLutParams(in vec3 direction) {
-	vec2 coord = normalize(direction.xz);
-
-    float horizonCos = rcp(viewerHeight * inversesqrt(viewerHeight * viewerHeight - atmosphere_bottom_radius_sq));
-    float horizonAngle = fastAcos(horizonCos);
-
-	float azimuthAngle = atan(coord.x, -coord.y);
-	float altitudeAngle = horizonAngle - fastAcos(direction.y);
-
-	coord.x = (azimuthAngle + PI) * rTAU;
-
-	// Non-linear mapping of the altitude angle
-	coord.y = fastSign(altitudeAngle) * sqrt(2.0 * rPI * abs(altitudeAngle)) * 0.5 + 0.5;
-
-	// To sub UV
-	coord = UnitToSubUv(coord, vec2(skyViewRes));
-
-	return saturate(coord) * vec2(1.0, 0.5);
 }

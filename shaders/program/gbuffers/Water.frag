@@ -68,19 +68,15 @@ void main() {
 			worldNormal = wave.normal;
 		#else
 			vec3 minecraftPos = worldPos + cameraPosition;
-			vec2 tangentPos = ((minecraftPos * vec3(1.0, 0.15, 1.0)) * tbnMatrix).xy;
 			#ifdef WATER_PARALLAX
 				float dither = SampleStbnVec1(texel, frameCounter + 5);
-				worldNormal = CalculateWaterNormal(tangentPos, worldDir * tbnMatrix, dither);
+				worldNormal = CalculateWaterNormal(minecraftPos, worldDir * tbnMatrix, dither);
 			#else
-				worldNormal = CalculateWaterNormal(tangentPos);
+				worldNormal = CalculateWaterNormal(minecraftPos);
 			#endif
 
 			worldNormal = tbnMatrix * worldNormal;
 		#endif
-
-		// Water normal clamp
-		worldNormal = normalize(worldNormal + tbnMatrix[2] * inversesqrt(4.0 * abs(dot(tbnMatrix[2], worldDir)) + 1e-2));
 
 		float depth1 = loadDepth1(texel);
 		vec3 viewPos1 = ScreenToViewSpace(vec3(gl_FragCoord.xy * viewPixelSize, depth1));

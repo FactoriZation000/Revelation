@@ -12,6 +12,8 @@
 #if !defined INCLUDE_SETTINGS
 #define INCLUDE_SETTINGS
 
+#define RENDER_MODE 1 // [0 1]
+
 #define INFO   Alpha // Development stage of the shaderpack. [Alpha Beta Release]
 #define AUTHOR HaringPro // Copyright holder of the shaderpack. [HaringPro]
 
@@ -20,7 +22,7 @@ const float	shadowDistance 	  = 192.0; // [64.0 80.0 96.0 112.0 128.0 160.0 192.
 
 //======// Environment //=========================================================================//
 
-const ivec2 skyViewRes = ivec2(256, 128);
+const ivec2 skyMapRes = ivec2(256, 256);
 
 /* Clouds */
 	#define CLOUDS
@@ -34,6 +36,7 @@ const ivec2 skyViewRes = ivec2(256, 128);
 	#define CLOUD_TAAU_SCALE 2 // [2 3 4 5]
 	#define CLOUD_MAX_ACCUM_FRAMES 64 // [16 20 24 28 32 36 40 44 48 52 56 60 64 68 72 76 80 84 88 92 96 100 104 108 112 116 120 124 128 132 136 140 144 148 152 156 160 164 168 172 176 180 184 188 192 196 200 204 208 212 216 220 224 228 232 236 240 244 248 252]
 	#define CLOUD_TAAU_CLIPPING
+	#define CLOUD_TAAU_ANTIFLICKER 0.25 // [0.0 0.25 0.5 0.75 1.0]
 
 /* Fog */
 	// #define BORDER_FOG // Enables border fog
@@ -185,7 +188,8 @@ const ivec2 skyViewRes = ivec2(256, 128);
 
 	#define REFLECTION_FILTER // Enables reflection filter
 
-	#ifdef REFLECTION_FILTER
+	#if RENDER_MODE == 0
+		#undef REFLECTION_FILTER
 	#endif
 
 	#define SPECULAR_IMPORTANCE_SAMPLING_BIAS 0.3 // [0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0]
@@ -228,6 +232,7 @@ const ivec2 skyViewRes = ivec2(256, 128);
 
 	#define TAA_CLIPPING
 	#define TAA_AGGRESSION 2.0 // [1.0 1.05 1.1 1.15 1.2 1.25 1.3 1.35 1.4 1.45 1.5 1.55 1.6 1.65 1.7 1.75 1.8 1.85 1.9 1.95 2.0 2.05 2.1 2.15 2.2 2.25 2.3 2.35 2.4 2.45 2.5 2.55 2.6 2.65 2.7 2.75 2.8 2.85 2.9 2.95 3.0]
+	#define TAA_ANTIFLICKER 0.5 // [0.0 0.25 0.5 0.75 1.0]
 
 	#define TAA_SHARPEN
 
@@ -235,6 +240,10 @@ const ivec2 skyViewRes = ivec2(256, 128);
 	#define MOTION_BLUR // Enables motion blur
 	#define MOTION_BLUR_SAMPLES 6 // Sample count of motion blur. [2 3 4 5 6 7 8 9 10 12 14 16 18 20 22 24]
 	#define MOTION_BLUR_STRENGTH 0.5 // Strength of the motion blur. [0.0 0.05 0.1 0.15 0.2 0.25 0.3 0.35 0.4 0.45 0.5 0.6 0.7 0.8 0.9 1.0 1.2 1.4 1.5 1.7 2.0 2.5 3.0 3.5 4.0 4.5 5.0 7.0 10.0 12.0 14.0 16.0 18.0 20.0]
+
+	#if RENDER_MODE == 0
+		#undef MOTION_BLUR
+	#endif
 
 /* Bloom */
 	#define BLOOM_ENABLED // Enables bloom
@@ -268,9 +277,9 @@ const ivec2 skyViewRes = ivec2(256, 128);
 	// #define WHITE_WORLD
 	#define DEBUG_NORMALS 0 // [0 1 2]
 	// #define DEBUG_DEPTH 0 // [0 1 2]
-	// #define DEBUG_SKYVIEW
+	// #define DEBUG_SKY_MAP
 	// #define DEBUG_BLOOM_TILES
-	// #define DEBUG_GI
+	// #define DEBUG_CLOUD_MAP
 	// #define DEBUG_CLOUD_SHADOWS
 	// #define DEBUG_SKY_COLOR
 	// #define DEBUG_RESHADING

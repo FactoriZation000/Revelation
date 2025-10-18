@@ -83,11 +83,11 @@ void main() {
 	vec2 screenCoord = gl_FragCoord.xy * viewPixelSize;
 
 	const float currScale = rcp(float(CLOUD_TAAU_SCALE));
-	vec2 currCoord = screenCoord * currScale - R2(frameCounter + 11) * viewPixelSize;
+	vec2 currCoord = screenCoord * currScale - taaOffset * 0.5;
 	currCoord = min(currCoord, currScale - viewPixelSize);
 
 	// Fetch closest cloud depth
-	float cloudDepth = minOf(textureGather(cloudDepthOriginTex, currCoord, 0));
+	float cloudDepth = minOf(textureGather(cloudDepthOriginTex, currCoord));
 
 	// Skip ground
 	if (cloudDepth < EPS) return;
@@ -109,8 +109,7 @@ void main() {
 		// Return smoothed origin
 		cloudOut = textureBicubic(cloudOriginTex, currCoord);
 	} else {
-		vec4 prevData = textureLanczos(cloudReconstructTex, prevCoord);
-		prevData = vec4(satU16f(prevData.rgb), saturate(prevData.a));
+		vec4 prevData = max0(textureLanczos(cloudReconstructTex, prevCoord));
 
 		vec2 centerPixel = currCoord * viewSize - 0.5;
 		vec2 floorPixel = floor(centerPixel);
@@ -140,17 +139,18 @@ void main() {
 
 		// Ellipsoid intersection clipping
 		#ifdef CLOUD_TAAU_CLIPPING
-			float currLum = luminance(currData.rgb), prevLum = luminance(prevData.rgb);
-			float temporalContrast = saturate(abs(currLum - prevLum) / max(currLum, prevLum)) * 0.75;
-
 			vec4 clipStdDevInv = inversesqrt(abs(moment2 - moment1 * moment1) + EPS);
 			prevData -= moment1;
-			prevData *= pow(saturate(inversesqrt(sdot(prevData * clipStdDevInv * 0.25))), 1.0 - temporalContrast);
+			prevData *= saturate(inversesqrt(sdot(prevData * clipStdDevInv * 0.25)));
 			prevData += moment1;
 		#endif
 
 		// Accumulate
+		float currLum = luminance(currData.rgb), prevLum = luminance(prevData.rgb);
+		float temporalContrast = saturate(abs(currLum - prevLum) / max(currLum, prevLum));
+		float antiFlicker = 1.0 + sqr(temporalContrast) * CLOUD_TAAU_ANTIFLICKER;
+
 		frameOut = min(frameIndex + 1u, CLOUD_MAX_ACCUM_FRAMES);
-		cloudOut = satU16f(mix(prevData, currData, rcp(float(frameOut))));
+		cloudOut = mix(prevData, max0(currData), rcp(antiFlicker * float(frameOut)));
 	}
 }

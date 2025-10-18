@@ -5,7 +5,7 @@ uniform sampler2D colortex1;
 uniform sampler2D colortex2;
 uniform sampler2D colortex3;
 uniform sampler2D colortex4;
-uniform sampler2D skyViewTex;
+uniform sampler2D skyMapTex;
 uniform sampler2D colortex6;
 uniform usampler2D colortex7;
 uniform sampler2D colortex8;
@@ -41,7 +41,7 @@ uniform int worldTime;
 uniform int worldDay;
 
 uniform bool worldTimeChanged;
-uniform bool doDaylightCycle;
+uniform bool viewSizeChanged;
 
 uniform float frameTime;
 uniform float frameTimeCounter;

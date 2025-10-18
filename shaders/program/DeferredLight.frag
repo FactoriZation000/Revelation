@@ -46,7 +46,7 @@ uniform sampler2D cloudOriginTex;
 #include "/lib/universal/Random.glsl"
 
 #include "/lib/atmosphere/Common.glsl"
-#include "/lib/atmosphere/PrecomputedAtmosphericScattering.glsl"
+#include "/lib/atmosphere/Bruneton08.glsl"
 #include "/lib/atmosphere/Celestial.glsl"
 
 #ifdef CLOUD_SHADOWS
@@ -97,10 +97,10 @@ void main() {
 	sceneOut = vec3(0.0);
 
 	if (screenPos.z > 1.0 - EPS + float(materialID)) {
-		vec2 skyViewCoord = FromSkyViewLutParams(worldDir);
-		sceneOut = textureBicubic(skyViewTex, skyViewCoord).rgb;
+		vec3 transmittance;
+		sceneOut = GetSkyRadiance(worldDir, worldSunVector, transmittance) * SKY_SPECTRAL_RADIANCE_TO_LUMINANCE;
 
-		if (!RayIntersectsGround(viewerHeight, worldDir.y)) {
+		if (dot(transmittance, vec3(1.0)) > EPS) {
 			vec3 celestial = RenderSun(worldDir, worldSunVector);
 			vec3 vanillaMoon = albedo;
 
@@ -110,8 +110,7 @@ void main() {
 				celestial += mix(RenderStars(worldDir), vanillaMoon, step(0.06, vanillaMoon.g));
 			#endif
 
-			vec3 transmittance = GetTransmittanceToTopAtmosphereBoundary(viewerHeight, worldDir.y);
-			sceneOut += celestial * mix(vec3(1.0), transmittance, step(viewerHeight, atmosphereModel.top_radius));
+			sceneOut += celestial * transmittance;
 		}
 
 		#ifdef CLOUDS
