@@ -51,18 +51,18 @@ uniform sampler2D presort;
 
 
 // From Alpha-Piscium
-float intersectCOC(vec2 p, float radius) {
-    float texelDistSq = dot(p, p);
-    return smoothstep(sqr(radius + 0.01), sqr(radius - 0.01), texelDistSq);
-}
+// float intersectCOC(vec2 p, float radius) {
+//     float texelDistSq = dot(p, p);
+//     return smoothstep(sqr(radius + 0.01), sqr(radius - 0.01), texelDistSq);
+// }
 
-float intersectCOC2(vec2 p, float radius) {
-    float q = abs(p.x) * (2.0 / radius);
-    float r = (abs(p.x) + abs(p.y) * sqrt(3.0)) / radius;
-    float s = (abs(p.x) - abs(p.y) * sqrt(3.0)) / radius;
+// float intersectCOC2(vec2 p, float radius) {
+//     float q = abs(p.x) * (2.0 / radius);
+//     float r = (abs(p.x) + abs(p.y) * sqrt(3.0)) / radius;
+//     float s = (abs(p.x) - abs(p.y) * sqrt(3.0)) / radius;
 
-    return smoothstep(2.01, 1.99, max(abs(q), max(abs(r), abs(s))));
-}
+//     return smoothstep(2.01, 1.99, max(abs(q), max(abs(r), abs(s))));
+// }
 
 vec2 ApplyCatEyeEffect(vec2 sampleUV, vec2 screenCenter, vec2 baseOffset)
 {
@@ -148,7 +148,7 @@ void main()
 
             for (uint i = startIdx; i < endIdx; ++i)
             {
-                vec2 offset = precomputedBokehOffsets[i] * ringRadius * rot;
+                vec2 offset = circularBokehOffsets[i] * ringRadius * rot;
                 #ifdef DOF_CAT_EYE_EFFECT
                     offset = ApplyCatEyeEffect(uv, vec2(0.5f), offset);
                 #endif
@@ -201,7 +201,7 @@ void main()
             for (uint i = startIdx; i < endIdx; ++i)
             {
 
-                vec2 offset = precomputedBokehOffsets[i] * ringRadius * rot;
+                vec2 offset = circularBokehOffsets[i] * ringRadius * rot;
                 #ifdef DOF_CAT_EYE_EFFECT
                     offset = ApplyCatEyeEffect(uv, vec2(0.5f), offset);
                 #endif
@@ -299,7 +299,7 @@ void main()
             for (uint i = startIdx; i < endIdx; ++i)
             {
                 // vec2 noise = vec2(BlueNoiseTemporal(texel.xy + ivec2(i,j))) * 0.125f * (float(j) * rcp(float(ringCount)));
-                vec2 offset = hexPrecomputedBokehOffsets[i] * rot;
+                vec2 offset = hexagonalBokehOffsets[i] * rot;
 
                 #ifdef DOF_CAT_EYE_EFFECT
                     offset = ApplyCatEyeEffect(uv, vec2(0.5f), offset);
@@ -354,7 +354,7 @@ void main()
             for (uint i = startIdx; i < endIdx; ++i)
             {
 
-                vec2 offset = hexPrecomputedBokehOffsets[i] * rot;
+                vec2 offset = hexagonalBokehOffsets[i] * rot;
                 #ifdef DOF_CAT_EYE_EFFECT
                     offset = ApplyCatEyeEffect(uv, vec2(0.5f), offset);
                 #endif

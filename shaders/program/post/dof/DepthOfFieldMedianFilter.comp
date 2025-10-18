@@ -65,15 +65,15 @@ void main()
         ivec2 offset = ivec2(i & 1, i >> 1);
         ivec2 halfTexel = halfResBase + offset;
 
-        float p1 = texelFetch(mainData, halfTexel + filterOffsets[0], 0).a;
-        float p2 = texelFetch(mainData, halfTexel + filterOffsets[1], 0).a;
-        float p3 = texelFetch(mainData, halfTexel + filterOffsets[2], 0).a;
-        float p4 = texelFetch(mainData, halfTexel + filterOffsets[3], 0).a;
-        float p5 = texelFetch(mainData, halfTexel + filterOffsets[4], 0).a;
-        float p6 = texelFetch(mainData, halfTexel + filterOffsets[5], 0).a;
-        float p7 = texelFetch(mainData, halfTexel + filterOffsets[6], 0).a;
-        float p8 = texelFetch(mainData, halfTexel + filterOffsets[7], 0).a;
-        float p9 = texelFetch(mainData, halfTexel + filterOffsets[8], 0).a;
+        float p1 = texelFetch(mainData, halfTexel + filterOffsets3x3[0], 0).a;
+        float p2 = texelFetch(mainData, halfTexel + filterOffsets3x3[1], 0).a;
+        float p3 = texelFetch(mainData, halfTexel + filterOffsets3x3[2], 0).a;
+        float p4 = texelFetch(mainData, halfTexel + filterOffsets3x3[3], 0).a;
+        float p5 = texelFetch(mainData, halfTexel + filterOffsets3x3[4], 0).a;
+        float p6 = texelFetch(mainData, halfTexel + filterOffsets3x3[5], 0).a;
+        float p7 = texelFetch(mainData, halfTexel + filterOffsets3x3[6], 0).a;
+        float p8 = texelFetch(mainData, halfTexel + filterOffsets3x3[7], 0).a;
+        float p9 = texelFetch(mainData, halfTexel + filterOffsets3x3[8], 0).a;
         float medianAlpha = Median9(p1, p2, p3, p4, p5, p6, p7, p8, p9);
 
         vec3 medianColor = MedianFilter3x3(mainData, halfTexel);

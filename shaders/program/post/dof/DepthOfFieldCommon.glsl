@@ -16,9 +16,10 @@
 --------------------------------------------------------------------------------
 */
 
-// External Settings
-//#define DOF_ENABLED
-//#define DOF_EXCLUDE_HAND
+//======// External Settings //===================================================================//
+
+// #define DOF_ENABLED
+// #define DOF_EXCLUDE_HAND
 // Make the hand distinct(more cost)
 
 #define DOF_SENSOR_SIZE 36.0f // [13.2f 22.3f 36.0f 43.0f 54.0f 60.0f]
@@ -54,7 +55,7 @@
 #define DOF_MAXIMUM_COC 12.0f // [12.0f 12.5f 13.0f 13.5f 14.0f 14.5f 15.0f 15.5f 16.0f 16.5f 17.0f 17.5f 18.0f 18.5f 19.0f 19.5f 20.0f]
 // Maximum COC (in pixels)
 
-//#define DOF_COLOR_ABERRATION
+// #define DOF_COLOR_ABERRATION
 // Enable CA
 #define DOF_COLOR_ABERRATION_FACTOR 0.005f // [0.005f 0.010f 0.015f 0.020f 0.025f 0.030f 0.035f 0.040f 0.045f 0.050f 0.055f 0.060f 0.065f 0.070f 0.075f 0.080f 0.085f 0.090f 0.095f 0.100f]
 // Recommended value:0.005f or below
@@ -70,12 +71,15 @@
 
 #define DOF_FOCUS_POSITION_X 0.5f // [0.1f 0.2f 0.3f 0.4f 0.5f 0.6f 0.7f 0.8f 0.9f 1.0f]
 #define DOF_FOCUS_POSITION_Y 0.5f // [0.1f 0.2f 0.3f 0.4f 0.5f 0.6f 0.7f 0.8f 0.9f 1.0f]
-//#define DOF_FOCUS_POINT_VISIBILITY
+// #define DOF_FOCUS_POINT_VISIBILITY
 
-//#define DOF_HEXAGONAL_BOKEH
+// #define DOF_HEXAGONAL_BOKEH
 // Some effect(such as Cat's eyes effect) may not perform as good as circular bokeh.
 
-// Internal Settings(Unless you know what you are doing, do not change these settings)
+//======// Internal Settings //===================================================================//
+
+// Unless you know what you are doing, do not change these settings
+
 #define DOF_TILE_SIZE 8
 #define DOF_SPREAD_TOE_POWER 2.0f
 #define DOF_DEPTH_SCALE_FOREGROUND (far * 1.5)
@@ -84,10 +88,10 @@
 // length(vec2(0.5, 0.5)), half of a pixel's diagonal
 // the maximum of SampleAlpha is 0.6366
 
-float SafeRcp(float x) { return rcp(max(x, 1e-6)); }
+//======// Offsets //=============================================================================//
 
-//  Reference:[3]
-const vec2 precomputedBokehOffsets[49] = vec2[49]
+// Reference:[3]
+const vec2 circularBokehOffsets[49] = vec2[49]
 (
     // === Center (1 point) ===
     vec2( 0.00000f,  0.00000f),
@@ -147,125 +151,8 @@ const vec2 precomputedBokehOffsets[49] = vec2[49]
     vec2( 0.96593f, -0.25882f)
 );
 
-// const vec2 hexPrecomputedBokehOffsets[61] = vec2[61](
-//     // === Center (1 point) ===
-//     vec2( 0.00000f,  0.00000f),
-
-//     // === Ring 1 (12 points) ===
-//     vec2( 0.33333f,  0.00000f),
-//     vec2( 0.25000f,  0.14434f),
-//     vec2( 0.16667f,  0.28868f),
-//     vec2( 0.00000f,  0.28868f),
-//     vec2(-0.16667f,  0.28868f),
-//     vec2(-0.25000f,  0.14434f),
-//     vec2(-0.33333f,  0.00000f),
-//     vec2(-0.25000f, -0.14434f),
-//     vec2(-0.16667f, -0.28868f),
-//     vec2( 0.00000f, -0.28868f),
-//     vec2( 0.16667f, -0.28868f),
-//     vec2( 0.25000f, -0.14434f),
-
-//     // === Ring 2 (24 points) ===
-//     vec2( 0.66667f,  0.00000f),
-//     vec2( 0.58333f,  0.14434f),
-//     vec2( 0.50000f,  0.28868f),
-//     vec2( 0.41667f,  0.43301f),
-//     vec2( 0.33333f,  0.57735f),
-//     vec2( 0.16667f,  0.57735f),
-//     vec2( 0.00000f,  0.57735f),
-//     vec2(-0.16667f,  0.57735f),
-//     vec2(-0.33333f,  0.57735f),
-//     vec2(-0.41667f,  0.43301f),
-//     vec2(-0.50000f,  0.28868f),
-//     vec2(-0.58333f,  0.14434f),
-//     vec2(-0.66667f,  0.00000f),
-//     vec2(-0.58333f, -0.14434f),
-//     vec2(-0.50000f, -0.28868f),
-//     vec2(-0.41667f, -0.43301f),
-//     vec2(-0.33333f, -0.57735f),
-//     vec2(-0.16667f, -0.57735f),
-//     vec2( 0.00000f, -0.57735f),
-//     vec2( 0.16667f, -0.57735f),
-//     vec2( 0.33333f, -0.57735f),
-//     vec2( 0.41667f, -0.43301f),
-//     vec2( 0.50000f, -0.28868f),
-//     vec2( 0.58333f, -0.14434f),
-
-//     // === Ring 3 (24 points) ===
-//     vec2( 1.00000f,  0.00000f),
-//     vec2( 0.87500f,  0.21651f),
-//     vec2( 0.75000f,  0.43301f),
-//     vec2( 0.62500f,  0.64952f),
-//     vec2( 0.50000f,  0.86603f),
-//     vec2( 0.25000f,  0.86603f),
-//     vec2( 0.00000f,  0.86603f),
-//     vec2(-0.25000f,  0.86603f),
-//     vec2(-0.50000f,  0.86603f),
-//     vec2(-0.62500f,  0.64952f),
-//     vec2(-0.75000f,  0.43301f),
-//     vec2(-0.87500f,  0.21651f),
-//     vec2(-1.00000f,  0.00000f),
-//     vec2(-0.87500f, -0.21651f),
-//     vec2(-0.75000f, -0.43301f),
-//     vec2(-0.62500f, -0.64952f),
-//     vec2(-0.50000f, -0.86603f),
-//     vec2(-0.25000f, -0.86603f),
-//     vec2( 0.00000f, -0.86603f),
-//     vec2( 0.25000f, -0.86603f),
-//     vec2( 0.50000f, -0.86603f),
-//     vec2( 0.62500f, -0.64952f),
-//     vec2( 0.75000f, -0.43301f),
-//     vec2( 0.87500f, -0.21651f)
-// );
-
-// const vec2 hexPrecomputedBokehOffsets[37] = vec2[37] (
-//     // === Center (1 point) ===
-//     vec2( 0.00000f, 0.00000f),
-
-//     // === Ring 1 (6 points, 60° spacing) ===
-//     vec2( 0.33333f, 0.00000f),
-//     vec2( 0.16667f, 0.28868f),
-//     vec2(-0.16667f, 0.28868f),
-//     vec2(-0.33333f, 0.00000f),
-//     vec2(-0.16667f,-0.28868f),
-//     vec2( 0.16667f,-0.28868f),
-
-//     // === Ring 2 (12 points, 30° spacing) ===
-//     vec2( 0.66667f, 0.00000f),
-//     vec2( 0.50000f, 0.28868f),
-//     vec2( 0.33333f, 0.57735f),
-//     vec2( 0.00000f, 0.57735f),
-//     vec2(-0.33333f, 0.57735f),
-//     vec2(-0.50000f, 0.28868f),
-//     vec2(-0.66667f, 0.00000f),
-//     vec2(-0.50000f,-0.28868f),
-//     vec2(-0.33333f,-0.57735f),
-//     vec2( 0.00000f,-0.57735f),
-//     vec2( 0.33333f,-0.57735f),
-//     vec2( 0.50000f,-0.28868f),
-
-//     // === Ring 3 (18 points, 20° spacing) ===
-//     vec2( 1.00000f, 0.00000f),
-//     vec2( 0.83333f, 0.28868f),
-//     vec2( 0.66667f, 0.57735f),
-//     vec2( 0.50000f, 0.86603f),
-//     vec2( 0.16667f, 0.86603f),
-//     vec2(-0.16667f, 0.86603f),
-//     vec2(-0.50000f, 0.86603f),
-//     vec2(-0.66667f, 0.57735f),
-//     vec2(-0.83333f, 0.28868f),
-//     vec2(-1.00000f, 0.00000f),
-//     vec2(-0.83333f,-0.28868f),
-//     vec2(-0.66667f,-0.57735f),
-//     vec2(-0.50000f,-0.86603f),
-//     vec2(-0.16667f,-0.86603f),
-//     vec2( 0.16667f,-0.86603f),
-//     vec2( 0.50000f,-0.86603f),
-//     vec2( 0.66667f,-0.57735f),
-//     vec2( 0.83333f,-0.28868f)
-// );
-
-const vec2 hexPrecomputedBokehOffsets[37] = vec2[37]
+// Point-top
+const vec2 hexagonalBokehOffsets[37] = vec2[37]
 (
     // Center
     vec2( 0.00000f,  0.00000f),
@@ -312,6 +199,16 @@ const vec2 hexPrecomputedBokehOffsets[37] = vec2[37]
     vec2( 0.86603f, -0.16667f),
     vec2( 0.86603f,  0.16667f)
 );
+
+const vec2 circularFilterOffsets[9] = vec2[9](
+    vec2(-1.00000f,  0.00000f), vec2(-0.70711f, -0.70711f), vec2(0.00000f, -1.00000f),
+    vec2( 0.70711f, -0.70711f), vec2( 0.00000f,  0.00000f), vec2(0.70711f,  0.70711f),
+    vec2( 0.00000f,  1.00000f), vec2(-0.70711f,  0.70711f), vec2(1.00000f,  0.00000f)
+);
+
+//======// Utility //=============================================================================//
+
+float SafeRcp(float x) { return rcp(max(x, 1e-6)); }
 
 // Reference:[4]
 // The variables were numbered in order from top to bottom and left to right.
@@ -371,32 +268,26 @@ float Max9(float p1, float p2, float p3, float p4, float p5, float p6, float p7,
     return max(max(max(p1, p2), max(p3, p4)), max(max(p5, p6), max(max(p7, p8), p9)));
 }
 
-const ivec2 filterOffsets[9] = ivec2[9]
+const ivec2 filterOffsets3x3[9] = ivec2[9]
 (
     ivec2(-1, -1), ivec2( 0, -1), ivec2( 1, -1),
     ivec2(-1,  0), ivec2( 0,  0), ivec2( 1,  0),
     ivec2(-1,  1), ivec2( 0,  1), ivec2( 1,  1)
 );
 
-const vec2 circularFilterOffsets[9] = vec2[9](
-    vec2(-1.00000f,  0.00000f), vec2(-0.70711f, -0.70711f), vec2(0.00000f, -1.00000f),
-    vec2( 0.70711f, -0.70711f), vec2( 0.00000f,  0.00000f), vec2(0.70711f,  0.70711f),
-    vec2( 0.00000f,  1.00000f), vec2(-0.70711f,  0.70711f), vec2(1.00000f,  0.00000f)
-);
-
 // Reference:[3][4]
 vec3 MedianFilter3x3(sampler2D s, ivec2 texelCoord)
 {
 
-    vec3 p1 = texelFetch(s, texelCoord + filterOffsets[0], 0).rgb;
-    vec3 p2 = texelFetch(s, texelCoord + filterOffsets[1], 0).rgb;
-    vec3 p3 = texelFetch(s, texelCoord + filterOffsets[2], 0).rgb;
-    vec3 p4 = texelFetch(s, texelCoord + filterOffsets[3], 0).rgb;
-    vec3 p5 = texelFetch(s, texelCoord + filterOffsets[4], 0).rgb;
-    vec3 p6 = texelFetch(s, texelCoord + filterOffsets[5], 0).rgb;
-    vec3 p7 = texelFetch(s, texelCoord + filterOffsets[6], 0).rgb;
-    vec3 p8 = texelFetch(s, texelCoord + filterOffsets[7], 0).rgb;
-    vec3 p9 = texelFetch(s, texelCoord + filterOffsets[8], 0).rgb;
+    vec3 p1 = texelFetch(s, texelCoord + filterOffsets3x3[0], 0).rgb;
+    vec3 p2 = texelFetch(s, texelCoord + filterOffsets3x3[1], 0).rgb;
+    vec3 p3 = texelFetch(s, texelCoord + filterOffsets3x3[2], 0).rgb;
+    vec3 p4 = texelFetch(s, texelCoord + filterOffsets3x3[3], 0).rgb;
+    vec3 p5 = texelFetch(s, texelCoord + filterOffsets3x3[4], 0).rgb;
+    vec3 p6 = texelFetch(s, texelCoord + filterOffsets3x3[5], 0).rgb;
+    vec3 p7 = texelFetch(s, texelCoord + filterOffsets3x3[6], 0).rgb;
+    vec3 p8 = texelFetch(s, texelCoord + filterOffsets3x3[7], 0).rgb;
+    vec3 p9 = texelFetch(s, texelCoord + filterOffsets3x3[8], 0).rgb;
 
     float R = Median9(p1.r, p2.r, p3.r, p4.r, p5.r, p6.r, p7.r, p8.r, p9.r);
     float G = Median9(p1.g, p2.g, p3.g, p4.g, p5.g, p6.g, p7.g, p8.g, p9.g);
@@ -408,15 +299,15 @@ vec3 MedianFilter3x3(sampler2D s, ivec2 texelCoord)
 vec3 MaxFilter3x3(sampler2D s, ivec2 texelCoord)
 {
 
-    vec3 p1 = texelFetch(s, texelCoord + filterOffsets[0], 0).rgb;
-    vec3 p2 = texelFetch(s, texelCoord + filterOffsets[1], 0).rgb;
-    vec3 p3 = texelFetch(s, texelCoord + filterOffsets[2], 0).rgb;
-    vec3 p4 = texelFetch(s, texelCoord + filterOffsets[3], 0).rgb;
-    vec3 p5 = texelFetch(s, texelCoord + filterOffsets[4], 0).rgb;
-    vec3 p6 = texelFetch(s, texelCoord + filterOffsets[5], 0).rgb;
-    vec3 p7 = texelFetch(s, texelCoord + filterOffsets[6], 0).rgb;
-    vec3 p8 = texelFetch(s, texelCoord + filterOffsets[7], 0).rgb;
-    vec3 p9 = texelFetch(s, texelCoord + filterOffsets[8], 0).rgb;
+    vec3 p1 = texelFetch(s, texelCoord + filterOffsets3x3[0], 0).rgb;
+    vec3 p2 = texelFetch(s, texelCoord + filterOffsets3x3[1], 0).rgb;
+    vec3 p3 = texelFetch(s, texelCoord + filterOffsets3x3[2], 0).rgb;
+    vec3 p4 = texelFetch(s, texelCoord + filterOffsets3x3[3], 0).rgb;
+    vec3 p5 = texelFetch(s, texelCoord + filterOffsets3x3[4], 0).rgb;
+    vec3 p6 = texelFetch(s, texelCoord + filterOffsets3x3[5], 0).rgb;
+    vec3 p7 = texelFetch(s, texelCoord + filterOffsets3x3[6], 0).rgb;
+    vec3 p8 = texelFetch(s, texelCoord + filterOffsets3x3[7], 0).rgb;
+    vec3 p9 = texelFetch(s, texelCoord + filterOffsets3x3[8], 0).rgb;
 
     float R = Max9(p1.r, p2.r, p3.r, p4.r, p5.r, p6.r, p7.r, p8.r, p9.r);
     float G = Max9(p1.g, p2.g, p3.g, p4.g, p5.g, p6.g, p7.g, p8.g, p9.g);
@@ -424,7 +315,6 @@ vec3 MaxFilter3x3(sampler2D s, ivec2 texelCoord)
 
     return vec3(R, G, B);
 }
-
 
 // Reference:[3]
 // Very important
@@ -450,7 +340,7 @@ float SpreadToe(float offsetCoc, float spreadCmp)
 }
 float SpreadCmp(float offsetCoc, float sampleCoc, float spreadScale)
 {
-	return SpreadToe(offsetCoc, saturate(spreadScale * sampleCoc - offsetCoc + 1.0));
+	return SpreadToe(offsetCoc, saturate(spreadScale * sampleCoc - offsetCoc + 1.0f));
 }
 
 float KarisAverage(in vec3 color) {
