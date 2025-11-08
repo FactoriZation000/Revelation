@@ -40,7 +40,7 @@ uniform sampler2D setup;
 // Calculate 4 COC at a time
 vec4 CalculateCOCs(float apertureDiameter, float focalLength, float focusDistance, vec4 viewSpaceDistances)
 {
-    viewSpaceDistances = max(vec4(0.31f), viewSpaceDistances);
+    // viewSpaceDistances = max(vec4(0.31f), viewSpaceDistances);
 
     float viewSize = length(viewSize);
     float scaleFactor = viewSize * rcp(DOF_SENSOR_SIZE) * 1000.0f;

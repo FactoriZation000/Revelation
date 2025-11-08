@@ -52,7 +52,7 @@
 
 #define DOF_RING_COUNT 3 // [1 2 3]
 // Number of sampling rings (less than or equal to 3)
-#define DOF_MAXIMUM_COC 12.0f // [12.0f 12.5f 13.0f 13.5f 14.0f 14.5f 15.0f 15.5f 16.0f 16.5f 17.0f 17.5f 18.0f 18.5f 19.0f 19.5f 20.0f]
+#define DOF_MAXIMUM_COC 14.0f // [12.0f 12.5f 13.0f 13.5f 14.0f 14.5f 15.0f 15.5f 16.0f 16.5f 17.0f 17.5f 18.0f 18.5f 19.0f 19.5f 20.0f]
 // Maximum COC (in pixels)
 
 // #define DOF_COLOR_ABERRATION

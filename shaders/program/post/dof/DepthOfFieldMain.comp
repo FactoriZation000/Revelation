@@ -110,9 +110,9 @@ void main()
 
     // float originalCOC = imageLoad(tileDataImage, texel / 4).w;
 
-	vec2 screenCoord = gl_GlobalInvocationID.xy * 2.0f * viewPixelSize;
+    vec2 screenCoord = gl_GlobalInvocationID.xy * 2.0f * viewPixelSize;
 	vec2 clipCoord = screenCoord * 2.0f - 1.0f;
-    vec2 colorAberrationOffset = vec2(sqr(clipCoord) * clamp(maxMinCOC.x * DOF_COLOR_ABERRATION_FACTOR, -DOF_COLOR_ABERRATION_MAX_OFFSET, DOF_COLOR_ABERRATION_MAX_OFFSET));
+    vec2 colorAberrationOffset = sqr(clipCoord) * clamp(maxMinCOC.x * DOF_COLOR_ABERRATION_FACTOR, -DOF_COLOR_ABERRATION_MAX_OFFSET, DOF_COLOR_ABERRATION_MAX_OFFSET);
 
     if (maxMinCOC.x < 1.0f)// Early exit
     {
@@ -150,7 +150,7 @@ void main()
             {
                 vec2 offset = circularBokehOffsets[i] * ringRadius * rot;
                 #ifdef DOF_CAT_EYE_EFFECT
-                    offset = ApplyCatEyeEffect(uv, vec2(0.5f), offset);
+                    offset = ApplyCatEyeEffect(clipCoord, vec2(0.5f), offset);
                 #endif
                 vec2 sampleUV = uv + ringScale * offset;
 
@@ -203,7 +203,7 @@ void main()
 
                 vec2 offset = circularBokehOffsets[i] * ringRadius * rot;
                 #ifdef DOF_CAT_EYE_EFFECT
-                    offset = ApplyCatEyeEffect(uv, vec2(0.5f), offset);
+                    offset = ApplyCatEyeEffect(clipCoord, vec2(0.5f), offset);
                 #endif
                 vec2 sampleUV = uv + ringScale * offset;
 
@@ -220,11 +220,14 @@ void main()
 
                 float spreadCmp = SpreadCmp(j, sampleCOC, spreadScale);
 
+                float depthDiff = abs(centerCOC - sampleCOC);
+                float edgeWeight = exp(-depthDiff);
                 // Weights
                 // FKU black tiles
                 // Why some tiles have so small value of backgroundWeight?
-                float backgroundWeight = max(1e-6, presort.g * spreadCmp);
-                float foregroundWeight = max(1e-6, presort.b * spreadCmp);
+                // edgeWeight:when tiles include the sky, the whole tile will be completely blurry
+                float backgroundWeight = max(1e-6, presort.g * spreadCmp * edgeWeight);
+                float foregroundWeight = max(1e-6, presort.b * spreadCmp * edgeWeight);
 
                 // Accumulate the background and foreground
                 background += backgroundWeight * vec4(sampleColor, 1.0f);
@@ -302,7 +305,7 @@ void main()
                 vec2 offset = hexagonalBokehOffsets[i] * rot;
 
                 #ifdef DOF_CAT_EYE_EFFECT
-                    offset = ApplyCatEyeEffect(uv, vec2(0.5f), offset);
+                    offset = ApplyCatEyeEffect(clipCoord, vec2(0.5f), offset);
                 #endif
 
                 vec2 sampleUV = uv + ringScale * offset;
@@ -356,7 +359,7 @@ void main()
 
                 vec2 offset = hexagonalBokehOffsets[i] * rot;
                 #ifdef DOF_CAT_EYE_EFFECT
-                    offset = ApplyCatEyeEffect(uv, vec2(0.5f), offset);
+                    offset = ApplyCatEyeEffect(clipCoord, vec2(0.5f), offset);
                 #endif
                 vec2 sampleUV = uv + ringScale * offset;
 
