@@ -83,7 +83,7 @@ void main()
         {
             vec3 weightedColor = vec3(0.0f);
             float totalWeight = 0.0f;
-            vec2 ringScale = originalCOC * viewPixelSize * 0.125f;
+            vec2 ringScale = originalCOC * viewPixelSize * 0.16667f;// rcp(6)
 
             // Completely unroll
             {
