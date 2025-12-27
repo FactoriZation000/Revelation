@@ -48,7 +48,7 @@ vec4 CalculateCOCs(float apertureDiameter, float focalLength, float focusDistanc
     float maxBackgroundCOC = (apertureDiameter * focalLength * scaleFactor) / (focusDistance - focalLength);
 
     //return vec4(16.0f);
-    return clamp(pow(abs(maxBackgroundCOC * oms(focusDistance / viewSpaceDistances)), vec4(DOF_FOCUS_AREA_SCALE)), vec4(0.0f), vec4(DOF_MAXIMUM_COC));
+    return clamp(abs(maxBackgroundCOC * oms(focusDistance / viewSpaceDistances)), vec4(0.0f), vec4(DOF_MAXIMUM_COC));
 }
 
 float DownsampleCOCs(vec4 cocs)
