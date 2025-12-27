@@ -54,33 +54,21 @@ void main()
     vec2 uv = texelToUv(texel) * 2.0f;
 
     // Presort
-    // float centerDepthSmooth = texelFetch(colortex1, ivec2(1), 0).w;// centerDepthSmooth
     float depth = ScreenToViewDepth(textureLod(depthtex1, uv, 0.0f).x);
     float minDepth = ScreenToViewDepth(imageLoad(tileDataImage, texel >> 1).x);
     vec2 depthCmp = DepthCmp2(depth, minDepth);
     float alpha = SampleAlpha(imageLoad(tileDataImage, texel >> 1).w);
 
     float backgroundFactor = depthCmp.x * alpha;
-    float foregroundFactor = depthCmp.y * alpha;
 
     // Prefilter
     vec3 prefilteredColor = vec3(0.0f);
 
-    vec2 maxMinCOC = imageLoad(tileDataNeighborhoodImage, texel >> 1).yz;
+    //vec2 maxMinCOC = imageLoad(tileDataNeighborhoodImage, texel >> 1).yz;
     float originalCOC = imageLoad(tileDataImage, texel >> 1).w;
 
-    // float noise = TemporalIGN(texel, int(frameTime) % 32) * TAU * rcp(9);
-    // vec2 cossin = cossin(noise);
-    // mat2 rot = mat2(cossin.x, -cossin.y, cossin.y, cossin.x);
-
-   	if (maxMinCOC.x < 1.0f)
+    if (backgroundFactor < 1.0f)
     {
-	    prefilteredColor = texture(setup, uv).rgb;// Early exit
-	}
-    // else
-    {
-        if (backgroundFactor < 1.0f)
-        {
             vec3 weightedColor = vec3(0.0f);
             float totalWeight = 0.0f;
             vec2 ringScale = originalCOC * viewPixelSize * 0.16667f;// rcp(6)
@@ -118,15 +106,8 @@ void main()
                 totalWeight += weight8;
             }
             prefilteredColor = weightedColor / totalWeight;
-
-        }// Cheap and expensive
-        else
-        {
-            prefilteredColor = texture(setup, uv).rgb;
-        }
 	}
 
-    imageStore(presortImage, texel, vec4(0.0f, backgroundFactor, foregroundFactor, 0.0f));
     imageStore(prefilterImage, texel, vec4(prefilteredColor, 0.0f));
 
 }

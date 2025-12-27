@@ -65,7 +65,7 @@ void main()
 {
     // Get 2*2 quads
     vec2 uv = vec2(gl_GlobalInvocationID.xy * 2.0f + 1.0f) * viewPixelSize;
-    vec4 depths = textureGather(setup, uv, 3);
+    vec4 depths = textureGather(depthtex1, uv, 0);
 
     #if DOF_FOCUS_MODE == 0
          //float focusDistance = ScreenToViewDepth(centerDepthSmooth);

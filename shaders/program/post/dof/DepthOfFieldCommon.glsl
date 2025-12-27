@@ -64,7 +64,7 @@
 
 //#define DOF_CAT_EYE_EFFECT
 // Enable Cat's eyes effect
-#define DOF_CAT_EYE_EFFECT_RADIAL_STRENGTH 0.5f // [0.1f 0.2f 0.3f 0.4f 0.5f 0.6f 0.7f 0.8f 0.9f 1.0f 1.1f 1.2f 1.3f 1.4f 1.5f 1.6f 1.7f 1.8f 1.9f 2.0f]
+#define DOF_CAT_EYE_EFFECT_RADIAL_STRENGTH 0.7f // [0.1f 0.2f 0.3f 0.4f 0.5f 0.6f 0.7f 0.8f 0.9f 1.0f 1.1f 1.2f 1.3f 1.4f 1.5f 1.6f 1.7f 1.8f 1.9f 2.0f]
 // Recommended value:2.0f or below
 #define DOF_CAT_EYE_EFFECT_TANGENT_STRENGTH 1.0f // [0.1f 0.2f 0.3f 0.4f 0.5f 0.6f 0.7f 0.8f 0.9f 1.0f 1.1f 1.2f 1.3f 1.4f 1.5f 1.6f 1.7f 1.8f 1.9f 2.0f]
 // Recommended value:2.0f or below
@@ -334,14 +334,14 @@ vec2 DepthCmp2(float depth, float minTileDepth)
 	return depthCmp;
 }
 
-float SpreadToe(float offsetCoc, float spreadCmp)
-{
-	return offsetCoc <= 1.0f ? pow(spreadCmp, DOF_SPREAD_TOE_POWER) : spreadCmp;
-}
-float SpreadCmp(float offsetCoc, float sampleCoc, float spreadScale)
-{
-	return SpreadToe(offsetCoc, saturate(spreadScale * sampleCoc - offsetCoc + 1.0f));
-}
+// float SpreadToe(float offsetCoc, float spreadCmp)
+// {
+// 	return offsetCoc <= 1.0f ? pow(spreadCmp, DOF_SPREAD_TOE_POWER) : spreadCmp;
+// }
+// float SpreadCmp(float offsetCoc, float sampleCoc, float spreadScale)
+// {
+// 	return SpreadToe(offsetCoc, saturate(spreadScale * sampleCoc - offsetCoc + 1.0f));
+// }
 
 float KarisAverage(in vec3 color) {
     return SafeRcp(1.0f + (1.0f - DOF_KARIS_AVERAGE_STRENGTH) * luminance(color));
