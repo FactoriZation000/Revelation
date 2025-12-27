@@ -29,43 +29,41 @@ vec2 wavedx(vec2 position, vec2 direction, float frequency, float time) {
 		float x = time * c + dot(direction, position) * frequency;
 	#endif
 
-	float wave = sqr(sin(x) * 0.5 + 0.5);
+	float wave = exp2(sin(x));
 	float dx = wave * cos(x);
 
 	return vec2(wave, dx);
 }
 
-float CalculateWaterHeight(in vec2 position, in bool detail) {
-	const vec2 angle = cossin(goldenAngle);
-	const mat2 rot = mat2(angle, -angle.y, angle.x);
-
+float CalculateWaterHeight(in vec2 position) {
 	vec3 noise = FetchSmoothNoise((position + frameTimeCounter) * 2e-3);
-	vec2 dir = sincos(32.0 * noise.z * inversesqrt(sdot(position)));
+	vec2 dir = sincos(noise.z * 32.0 * inversesqrt(sdot(position)));
 
-	float frequency = 1.5;
+	float frequency = 1.0;
 	float weight = 1.0;
 	float sum = 0.0;
 	float sumWeight = 0.0;
 
 	float waveTime = 0.5 * WATER_WAVE_SPEED * frameTimeCounter;
-	uint steps = detail ? 12u : 6u;
 
-	for (uint i = 0u; i < steps; ++i, dir *= rot) {
+	for (uint i = 0u; i < 12u; ++i) {
+		frequency *= 1.22;
+		weight *= 0.8;
+
 		vec2 res = wavedx(position + dir * noise.xy * (8.0 * weight), dir, frequency, waveTime);
-		position -= dir * res.y * weight * 0.25;
+		position -= dir * res.y * weight * 0.2;
 
 		sum += res.x * weight;
 		sumWeight += weight;
 
-		weight *= 0.8;
-		frequency *= 1.22;
+		dir = sincos(float(i * 211));
 	}
 
 	#if !defined PASS_SHADOW
 		sum *= saturate(noise.z * 2.0 - 1.0) * 3.0 + 1.0;
 	#endif
 
-	return sum / sumWeight * 0.125;
+	return sum / sumWeight * (0.15 * WATER_WAVE_HEIGHT);
 }
 
 //================================================================================================//
@@ -73,31 +71,29 @@ float CalculateWaterHeight(in vec2 position, in bool detail) {
 vec3 CalculateWaterNormal(in vec2 position) {
 	const float delta = 0.1;
 
-	float height0 = CalculateWaterHeight(position, true);
-	float height1 = CalculateWaterHeight(position + vec2(delta, 0.0), true);
-	float height2 = CalculateWaterHeight(position + vec2(0.0, delta), true);
+	float height0 = CalculateWaterHeight(position);
+	float height1 = CalculateWaterHeight(position + vec2(delta, 0.0));
+	float height2 = CalculateWaterHeight(position + vec2(0.0, delta));
 
 	vec2 waveNormal = vec2(height0 - height1, height0 - height2);
-	waveNormal *= WATER_WAVE_HEIGHT / (1.0 + dot(fwidth(position), vec2(0.15)));
+	waveNormal *= rcp(1.0 + dot(fwidth(position), vec2(0.15)));
 	return normalize(vec3(waveNormal, delta));
 }
 
-vec3 CalculateWaterNormal(in vec3 position, in vec3 direction, in float dither) {
-	const uint steps = 32u;
-	const float rSteps = rcp(float(steps));
+vec3 CalculateWaterNormal(in vec3 rayPos, in vec3 rayDir) {
+	const uint steps = 8u;
 
-	vec3 rayStep = vec3(direction.xy * WATER_WAVE_HEIGHT, rSteps);
-	rayStep.xy *= rSteps / direction.z;
+	vec3 rayStep = vec3(rayDir.xy / rayDir.z, 1.0) * inversesqrt(steps);
 
-    vec3 samplePos = vec3(position.xz, 1.0) - rayStep * dither;
-	float sampleHeight = CalculateWaterHeight(samplePos.xy, false);
+	float height = CalculateWaterHeight(rayPos.xz);
+	vec3 offset = vec3(0.0, 0.0, 1.0) + height * rayStep;
 
-	while (sampleHeight < samplePos.z) {
-        samplePos -= rayStep;
-		sampleHeight = CalculateWaterHeight(samplePos.xy, false);
+	for (uint i = 0u; i < steps && height < offset.z; ++i) {
+		height = CalculateWaterHeight(rayPos.xz + offset.xy);
+		offset += (height - offset.z) * rayStep;
 	}
 
-	return CalculateWaterNormal(samplePos.xy);
+	return CalculateWaterNormal(rayPos.xz + offset.xy);
 }
 
 #endif

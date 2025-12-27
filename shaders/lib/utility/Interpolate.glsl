@@ -105,6 +105,51 @@ vec4 catmullRom(in float f) {
     );
 }
 
+// https://gist.github.com/TheRealMJP/bc503b0b87b643d3505d41eab8b332ae
+// The following code is licensed under the MIT license
+
+// Samples a texture with Catmull-Rom filtering, using 9 texture fetches instead of 16.
+// See http://vec3.ca/bicubic-filtering-in-fewer-taps/ for more details
+vec4 textureCatmullRom(in sampler2D tex, in vec2 uv) {
+	vec2 res = vec2(textureSize(tex, 0));
+    vec2 pixelSize = 1.0 / res;
+
+    vec2 samplePos = uv * res;
+    vec2 texPos1 = floor(samplePos - 0.5) + 0.5;
+
+    vec2 f = samplePos - texPos1;
+
+    vec2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
+    vec2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+    vec2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
+    vec2 w3 = f * f * (-0.5 + 0.5 * f);
+
+    vec2 w12 = w1 + w2;
+    vec2 offset12 = w2 / (w1 + w2);
+
+    vec2 texPos0  = texPos1 - 1.0;
+    vec2 texPos3  = texPos1 + 2.0;
+    vec2 texPos12 = texPos1 + offset12;
+
+    texPos0  *= pixelSize;
+    texPos3  *= pixelSize;
+    texPos12 *= pixelSize;
+
+    vec4 result = vec4(0.0);
+    result += texture(tex, vec2(texPos0.x , texPos0.y)) * w0.x  * w0.y;
+    result += texture(tex, vec2(texPos12.x, texPos0.y)) * w12.x * w0.y;
+    result += texture(tex, vec2(texPos3.x , texPos0.y)) * w3.x  * w0.y;
+
+    result += texture(tex, vec2(texPos0.x , texPos12.y)) * w0.x  * w12.y;
+    result += texture(tex, vec2(texPos12.x, texPos12.y)) * w12.x * w12.y;
+    result += texture(tex, vec2(texPos3.x , texPos12.y)) * w3.x  * w12.y;
+
+    result += texture(tex, vec2(texPos0.x , texPos3.y)) * w0.x  * w3.y;
+    result += texture(tex, vec2(texPos12.x, texPos3.y)) * w12.x * w3.y;
+    result += texture(tex, vec2(texPos3.x , texPos3.y)) * w3.x  * w3.y;
+    return result;
+}
+
 // Approximation from SMAA presentation [Jimenez 2016]
 vec4 textureCatmullRomFast(in sampler2D tex, in vec2 coord) {
 	vec2 res = vec2(textureSize(tex, 0));
@@ -130,7 +175,50 @@ vec4 textureCatmullRomFast(in sampler2D tex, in vec2 coord) {
     vec4 s0 = texture(tex, vec2(tc12.x,  tc0.y));
     vec4 s1 = texture(tex, vec2(tc0.x,  tc12.y));
     vec4 s2 = texture(tex, vec2(tc12.x, tc12.y));
-    vec4 s3 = texture(tex, vec2(tc3.x,   tc0.y));
+    vec4 s3 = texture(tex, vec2(tc3.x,  tc12.y));
+    vec4 s4 = texture(tex, vec2(tc12.x,  tc3.y));
+
+    float cw0 = w12.x * w0.y;
+    float cw1 = w0.x  * w12.y;
+    float cw2 = w12.x * w12.y;
+    float cw3 = w3.x  * w12.y;
+    float cw4 = w12.x * w3.y;
+
+    s0 *= cw0;
+    s1 *= cw1;
+    s2 *= cw2;
+    s3 *= cw3;
+    s4 *= cw4;
+
+    vec4 color = (s0 + s1 + s2 + s3 + s4) / (cw0 + cw1 + cw2 + cw3 + cw4);
+    return color;
+}
+
+vec4 textureCatmullRomFastAntiRing(in sampler2D tex, in vec2 coord) {
+	vec2 res = vec2(textureSize(tex, 0));
+    vec2 pixelSize = 1.0 / res;
+
+    vec2 pos = coord * res;
+    vec2 tc1 = floor(pos - 0.5) + 0.5;
+    vec2 f  = pos - tc1;
+    vec2 f2 = f * f;
+    vec2 f3 = f * f2;
+
+    const float c = 0.5;
+    vec2 w0  = -c         * f3 +  2.0 * c        * f2 - c * f;
+    vec2 w1  =  (2.0 - c) * f3 - (3.0 - c)       * f2 + 1.0;
+    vec2 w2  = -(2.0 - c) * f3 + (3.0 - 2.0 * c) * f2 + c * f;
+    vec2 w3  = c          * f3 - c               * f2;
+    vec2 w12 = w1 + w2;
+
+    vec2 tc0  = pixelSize * (tc1 - 1.0);
+    vec2 tc3  = pixelSize * (tc1 + 2.0);
+    vec2 tc12 = pixelSize * (tc1 + w2 / w12);
+
+    vec4 s0 = texture(tex, vec2(tc12.x,  tc0.y));
+    vec4 s1 = texture(tex, vec2(tc0.x,  tc12.y));
+    vec4 s2 = texture(tex, vec2(tc12.x, tc12.y));
+    vec4 s3 = texture(tex, vec2(tc3.x,  tc12.y));
     vec4 s4 = texture(tex, vec2(tc12.x,  tc3.y));
 
     vec4 minColor = min(min(min(s0, s1), min(s2, s3)), s4);

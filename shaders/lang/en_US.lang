@@ -62,10 +62,8 @@ option.PLANET_GROUND=Planet Ground
 option.VIEWER_BASE_ALTITUDE=Viewer Base Altitude
 suffix.VIEWER_BASE_ALTITUDE=m
 
-option.ATMOSPHERE_BOTTOM_ALTITUDE=Atmosphere Bottom Altitude
-suffix.ATMOSPHERE_BOTTOM_ALTITUDE=m
-option.ATMOSPHERE_TOP_ALTITUDE=Atmosphere Top Altitude
-suffix.ATMOSPHERE_TOP_ALTITUDE=m
+option.ATMOSPHERE_THICKNESS=Atmosphere Thickness
+suffix.ATMOSPHERE_THICKNESS=m
 
 option.SUN_RADIUS_MULT=Sun Radius Multiplier
 
@@ -89,11 +87,6 @@ suffix.CLOUD_TAAU_SCALE=x
 option.CLOUD_TAAU_CLIPPING=Upsampling Clipping
 option.CLOUD_MAX_ACCUM_FRAMES=Max Accumulated Frames
 option.CLOUD_TAAU_ANTIFLICKER=Anti-flicker
-
-option.CLOUD_MS_COUNT=Multi-scattering Count
-option.CLOUD_MS_FALLOFF_E=Extinction Falloff
-option.CLOUD_MS_FALLOFF_S=Scattering Falloff
-option.CLOUD_MS_FALLOFF_P=Phase Falloff
 
 option.CLOUD_LOW_SAMPLES=Samples
 option.CLOUD_LOW_SKYLIGHT_SAMPLES=Skylight Samples
@@ -288,6 +281,7 @@ value.SUBSURFACE_SCATTERING_MODE.1=Hardcoded + PBR
 value.SUBSURFACE_SCATTERING_MODE.2=PBR Only
 option.SUBSURFACE_SCATTERING_STRENGTH=Subsurface Scattering Strength
 option.SUBSURFACE_SCATTERING_BRIGHTNESS=Subsurface Scattering Brightness
+option.SUBSURFACE_SCATTERING_RADIUS=Subsurface Scattering Radius
 
 option.SSRT_MAX_SAMPLES=Raytrace Samples
 option.SSRT_REFINEMENT=Raytrace Refinement
@@ -308,11 +302,15 @@ option.WATER_PARALLAX=Water Parallax
 option.WATER_CAUSTICS=Water Caustics
 option.WATER_WAVE_HEIGHT=Water Wave Height
 option.WATER_WAVE_SPEED=Water Wave Speed
+option.WATER_FOG_DENSITY=Water Fog Density
+option.WATER_IOR=Water IOR
+
 option.WATER_ABSORPTION_R=Water Absorption §4Red
 option.WATER_ABSORPTION_G=Water Absorption §2Green
 option.WATER_ABSORPTION_B=Water Absorption §1Blue
-option.WATER_FOG_DENSITY=Water Fog Density
-option.WATER_IOR=Water IOR
+option.WATER_SCATTERING_R=Water Scattering §4Red
+option.WATER_SCATTERING_G=Water Scattering §2Green
+option.WATER_SCATTERING_B=Water Scattering §1Blue
 
 option.TRANSLUCENT_ROUGHNESS=Translucent Roughness
 option.GLASS_IOR=Glass IOR

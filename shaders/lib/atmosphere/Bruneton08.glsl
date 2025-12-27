@@ -299,7 +299,7 @@ vec3 GetSkyRadianceToPoint(
         // Compute the distance to the top atmosphere boundary along the view ray,
         // assuming the viewer is in space (or NaN if the view ray does not intersect
         // the atmosphere).
-        vec3 view_ray = normalize(point);
+        vec3 view_ray = normalize(point - camera);
         float r = length(camera);
         float rmu = dot(camera, view_ray);
         float distance_to_top_atmosphere_boundary = -rmu - sqrt(rmu * rmu - r * r + atmosphere_top_radius_sq);
@@ -316,7 +316,7 @@ vec3 GetSkyRadianceToPoint(
         float mu = rmu / r;
         float mu_s = dot(camera, sun_direction) / r;
         float nu = dot(view_ray, sun_direction);
-        float d = length(point);
+		float d = length(point - camera);
         bool ray_r_mu_intersects_ground = RayIntersectsGround(r, mu);
 
         transmittance = GetTransmittance(r, mu, d, ray_r_mu_intersects_ground);
@@ -356,7 +356,7 @@ vec3 GetSkyRadianceToPoint(
         vec3 mie = sun_single_mie_scattering * CornetteShanksPhase(nu, mie_phase_g)
                 + moon_single_mie_scattering * CornetteShanksPhase(-nu, mie_phase_g) * moonlightMult;
 
-        return (rayleigh + mie) * oms(wetness * 0.5);
+        return rayleigh * oms(wetness * 0.5) + mie;
 }
 
 vec3 GetSkyRadiance(
@@ -417,6 +417,8 @@ vec3 GetSkyRadiance(
                 vec3 scatterAP = GetSkyRadianceToPoint(planet_point, sun_direction, transmitAP);
                 ground = ground * transmitAP + scatterAP;
             }
+        #else
+            ray_r_mu_intersects_ground = false;
         #endif
 
         sun_scattering = GetCombinedScattering(r, mu, mu_s, nu, ray_r_mu_intersects_ground, sun_single_mie_scattering);
@@ -428,7 +430,7 @@ vec3 GetSkyRadiance(
         vec3 mie = sun_single_mie_scattering * CornetteShanksPhase(nu, mie_phase_g)
                 + moon_single_mie_scattering * CornetteShanksPhase(-nu, mie_phase_g) * moonlightMult;
 
-        return (rayleigh + mie + ground) * oms(wetness * 0.5);
+        return (rayleigh + ground) * oms(wetness * 0.5) + mie;
 }
 
 vec3 GetSkyRadiance(
@@ -485,6 +487,8 @@ vec3 GetSkyRadiance(
                 vec3 scatterAP = GetSkyRadianceToPoint(planet_point, sun_direction, transmitAP);
                 ground = ground * transmitAP + scatterAP;
             }
+        #else
+            ray_r_mu_intersects_ground = false;
         #endif
 
         sun_scattering = GetCombinedScattering(r, mu, mu_s, nu, ray_r_mu_intersects_ground, sun_single_mie_scattering);
@@ -496,5 +500,5 @@ vec3 GetSkyRadiance(
         vec3 mie = sun_single_mie_scattering * CornetteShanksPhase(nu, mie_phase_g)
                 + moon_single_mie_scattering * CornetteShanksPhase(-nu, mie_phase_g) * moonlightMult;
 
-        return (rayleigh + mie + ground) * oms(wetness * 0.5);
+        return (rayleigh + ground) * oms(wetness * 0.5) + mie;
 }

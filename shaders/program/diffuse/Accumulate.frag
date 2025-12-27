@@ -43,19 +43,15 @@ layout (location = 2) out vec2 varianceMoments;
 void TemporalFilter(in ivec2 texel, in vec3 screenPos, in vec3 worldNormal) {
     vec2 prevCoord = Reproject(screenPos).xy;
 
-    float luma = luminance(texelFetch(colortex3, texel, 0).rgb);
+    float luma = texelFetch(colortex3, texel, 0).r; // We use YCoCg color space
     ivec2 texelEnd = ivec2(halfViewEnd);
 
     // Estimate spatial variance
     vec2 currMoments = vec2(luma, luma * luma);
-    #if 0
+    #if 1
 	    for (uint i = 0u; i < 8u; ++i) {
             ivec2 sampleTexel = clamp(texel + offset3x3N[i], ivec2(0), texelEnd);
-            vec3 sampleColor = texelFetch(colortex3, sampleTexel, 0).rgb;
-            float sampleLuma = luminance(sampleColor);
-
-            // vec3 sampleNormal = FetchWorldNormal(loadGbufferData0(sampleTexel << 1));
-            // float weight = saturate(dot(sampleNormal, worldNormal) * 20.0 - 19.0);
+            float sampleLuma = texelFetch(colortex3, sampleTexel, 0).r; // We use YCoCg color space
 
             currMoments += vec2(sampleLuma, sampleLuma * sampleLuma);
         }
@@ -119,18 +115,18 @@ void TemporalFilter(in ivec2 texel, in vec3 screenPos, in vec3 worldNormal) {
                 varianceMoments.xy = mix(prevMoments, varianceMoments.xy, alpha);
             // }
 
-            float mipLevel = 2.0 * saturate(1.0 - indirectHistory.a * rcp(16.0));
+            float mipLevel = 3.0 * saturate(1.0 - indirectHistory.a * rcp(16.0));
             indirectCurrent.rgb = textureLod(colortex3, screenPos.xy * 0.5, mipLevel).rgb;
 
             indirectCurrent.rgb = indirectHistory.rgb = mix(prevDiffuse.rgb, indirectCurrent.rgb, alpha);
 
-            indirectCurrent.a = max0(varianceMoments.y - varianceMoments.x * varianceMoments.x);
-            indirectCurrent.a *= inversesqrt(indirectCurrent.a + EPS);
+            indirectCurrent.a = max0(varianceMoments.y - varianceMoments.x * varianceMoments.x) + EPS;
+            indirectCurrent.a *= inversesqrt(indirectCurrent.a);
             return;
         }
     }
 
-    indirectCurrent.rgb = textureLod(colortex3, screenPos.xy * 0.5, 2.0).rgb;
+    indirectCurrent.rgb = textureLod(colortex3, screenPos.xy * 0.5, 3.0).rgb;
     indirectCurrent.a = varianceMoments.x;
 }
 
@@ -155,11 +151,11 @@ void main() {
 
             if (depth < 1.0) {
                 vec3 screenPos = vec3(currentCoord, depth);
-                vec3 worldNormal = FetchWorldNormal(currentTexel);
+                vec3 worldNormal = FetchSurfaceNormal(currentTexel);
                 TemporalFilter(screenTexel, screenPos, worldNormal);
 
-                float blocklight = Unpack2x8UX(loadGbufferData0(currentTexel).x);
-                blocklight = pow5(blocklight) * exp2(-64.0 * luminance(indirectCurrent.rgb) * global.exposure.value);
+                float blocklight = Unpack2x8UX(loadMaterialPack(currentTexel).x);
+                blocklight = pow5(blocklight) * exp2(-64.0 * indirectCurrent.r * global.exposure.value);
                 indirectCurrent.rgb += blackbody(float(BLOCKLIGHT_TEMPERATURE)) * saturate(blocklight) * SSILVB_BLENDED_LIGHTMAP;
             }
         } else {
@@ -171,7 +167,7 @@ void main() {
             #endif
 
             if (depth < 1.0) {
-                vec3 worldNormal = FetchWorldNormal(currentTexel);
+                vec3 worldNormal = FetchSurfaceNormal(currentTexel);
                 vec3 screenPos = vec3(currentCoord - vec2(1.0, 0.0), depth);
                 vec3 viewPos = ScreenToViewSpace(screenPos);
                 #if defined DISTANT_HORIZONS

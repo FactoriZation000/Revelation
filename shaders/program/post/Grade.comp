@@ -31,7 +31,7 @@ layout (rgba16f) restrict uniform image2D mainDataImage;
 #define TONE_MAPPER AgX_Minimal // [None AcademyFit AcademyFull AgX_Minimal AgX_Full Uchimura Lottes]
 
 #define BLOOM_INTENSITY 1.0 // Intensity of bloom. [0.0 0.01 0.02 0.05 0.07 0.1 0.15 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0 3.0 4.0 5.0 7.0 10.0 15.0 20.0]
-#define BLOOMY_FOG_INTENSITY 0.75 // Intensity of bloomy fog. [0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.75 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0 2.5 3.0 3.5 4.0 5.0]
+#define BLOOMY_FOG_INTENSITY 1.0 // Intensity of bloomy fog. [0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.75 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0 2.5 3.0 3.5 4.0 5.0]
 
 #define PURKINJE_SHIFT // Enables purkinje shift effect
 #define PURKINJE_SHIFT_STRENGTH 0.5 // Strength of purkinje shift effect. [0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0 1.1 1.2 1.3 1.4 1.5 1.6 1.7 1.8 1.9 2.0 2.5 3.0 3.5 4.0 5.0]
@@ -42,7 +42,7 @@ layout (rgba16f) restrict uniform image2D mainDataImage;
 
 //======// Uniform //=============================================================================//
 
-writeonly uniform image2D colorimg0; // LDR output
+writeonly uniform image2D colorimg8; // LDR output
 
 uniform sampler2D colortex0; // Motion blur output
 uniform sampler2D colortex1; // TAA output
@@ -93,23 +93,23 @@ void CombineBloomAndFog(inout vec3 scene, in ivec2 texel, in float exposure) {
 
 		bloomData += sampleTile * weight;
 		sumWeight += weight;
-		weight *= 0.85;
+		weight *= 0.9;
 	}
 
 	bloomData *= rcp(sumWeight);
 
-	float bloomIntensity = BLOOM_INTENSITY * 0.075;
-	bloomIntensity *= fma(1.0 / max(exposure, 1.0), 0.75, 0.25);
+	float bloomIntensity = BLOOM_INTENSITY * 0.1;
+	bloomIntensity /= exposure + 1.0;
 
-	scene = mix(scene, bloomData, bloomIntensity);
+	scene = mix(scene, bloomData, saturate(bloomIntensity));
 
 	#ifdef BLOOMY_FOG
-		float mask = texelFetch(colortex12, texel, 0).x;
-		scene = mix(bloomData, scene, mix(1.0, saturate(mask), BLOOMY_FOG_INTENSITY));
+		float mask = saturate(texelFetch(colortex12, texel, 0).x);
+		scene = mix(bloomData, scene, mix(1.0, mask, BLOOMY_FOG_INTENSITY));
 	#endif
 
 	if (rainStrength > 1e-2) {
-		float rainAlpha = textureBicubic(colortex6, screenCoord).a;
+		float rainAlpha = texture(colortex6, screenCoord).a;
 		rainAlpha = oms(rainAlpha) * RAIN_VISIBILITY;
 		scene = scene * oms(rainAlpha) + bloomData * rainAlpha * 1.25;
 	}
@@ -201,7 +201,8 @@ vec3 Lottes(in vec3 x) {
 
 //======// Main //================================================================================//
 void main() {
-    ivec2 screenTexel = ivec2(gl_GlobalInvocationID.xy);
+    uvec2 localPos = QuadLayout16x16(gl_LocalInvocationIndex);
+    ivec2 texelPos = ivec2(localPos + gl_WorkGroupID.xy * gl_WorkGroupSize.xy);
 
  	#if EXPOSURE_MODE == MANUAL
 		float exposure = exp2(-MANUAL_EV);
@@ -210,21 +211,21 @@ void main() {
 	#endif
 
 	#ifdef MOTION_BLUR
-		vec3 HDRImage = texelFetch(colortex0, screenTexel, 0).rgb;
+		vec3 HDRImage = texelFetch(colortex0, texelPos, 0).rgb;
 	#else
-		vec3 HDRImage = texelFetch(colortex1, screenTexel, 0).rgb;
+		vec3 HDRImage = texelFetch(colortex1, texelPos, 0).rgb;
 	#endif
 
 
 	// Bloom and fog
 	#ifdef BLOOM_ENABLED
-		CombineBloomAndFog(HDRImage, screenTexel, exposure);
+		CombineBloomAndFog(HDRImage, texelPos, exposure);
 	#endif
 
 	// Debug sky environment map
 	#ifdef DEBUG_SKY_MAP
-		if (all(lessThan(screenTexel, skyMapRes))) {
-			HDRImage = texelFetch(skyMapTex, screenTexel, 0).rgb;
+		if (all(lessThan(texelPos, skyMapRes))) {
+			HDRImage = texelFetch(skyMapTex, texelPos, 0).rgb;
 		}
 	#endif
 
@@ -238,7 +239,7 @@ void main() {
 
 	// Vignetting
 	#ifdef VIGNETTE_ENABLED
-		vec2 clipCoord = texelToUv(screenTexel) * 2.0 - 1.0;
+		vec2 clipCoord = texelToUv(texelPos) * 2.0 - 1.0;
 		clipCoord.x *= mix(1.0, aspectRatio, VIGNETTE_ROUNDNESS);
 		HDRImage *= exp2(-0.5 * sdot(clipCoord) * VIGNETTE_STRENGTH);
 	#endif
@@ -249,5 +250,5 @@ void main() {
 	// LDR range clamp
 	LDRImage = saturate(LDRImage);
 
-	imageStore(colorimg0, screenTexel, vec4(sRGBtoLinearApprox(LDRImage), 1.0));
+	imageStore(colorimg8, texelPos, vec4(LDRImage, 1.0));
 }

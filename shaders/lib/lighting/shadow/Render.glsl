@@ -47,34 +47,10 @@ float BlockerSearch(in vec3 shadowScreenPos, in float dither, in float searchSca
 		sumWeight += weight;
 	}
 
-	blockerDepth *= 1.0 / sumWeight;
-	blockerDepth = clamp(2.0 * (shadowScreenPos.z - blockerDepth) / blockerDepth, 0.025, 0.25);
+	blockerDepth /= sumWeight;
+	blockerDepth = (blockerDepth - shadowScreenPos.z) * shadowProjectionInverse[2].z * 5.0;
 
-	return blockerDepth;
-}
-
-vec2 BlockerSearchSSS(in vec3 shadowScreenPos, in float dither, in float searchScale) {
-	float blockerDepth = 0.0;
-	float sumWeight = 0.0;
-	float sssDepth = 0.0;
-
-	vec2 searchRadius = searchScale * diagonal2(shadowProjection);
-
-	for (uint i = 0u; i < PCSS_SEARCH_SAMPLES; ++i) {
-		vec2 sampleCoord = shadowScreenPos.xy + sampleVogelDisk(i, PCSS_SEARCH_SAMPLES, dither) * searchRadius;
-
-		float sampleDepth = texelFetch(shadowtex0, ivec2(sampleCoord * realShadowMapRes), 0).x;
-		float weight = step(sampleDepth, shadowScreenPos.z);
-
-		sssDepth += max0(shadowScreenPos.z - sampleDepth);
-		blockerDepth += sampleDepth * weight;
-		sumWeight += weight;
-	}
-
-	blockerDepth *= 1.0 / sumWeight;
-	blockerDepth = clamp(2.0 * (shadowScreenPos.z - blockerDepth) / blockerDepth, 0.025, 0.25);
-
-	return vec2(blockerDepth, sssDepth * rcp(float(PCSS_SEARCH_SAMPLES)) * shadowProjectionInverse[2].z);
+	return clamp(atmosphereModel.sun_angular_radius * 2.0 * blockerDepth, 0.02, 0.25);
 }
 
 vec3 CalculateWaterCaustics(in vec3 worldPos, in float waterDepth, in float dither) {
@@ -94,16 +70,17 @@ vec3 CalculateWaterCaustics(in vec3 worldPos, in float waterDepth, in float dith
 		caustics += saturate(1.0 - 20.0 * distance(surfacePos, refractedPos));
 	}
 
-	return -smin(-caustics, -0.2, 0.2) * saturate(exp2(-rLOG2 * waterExtinction * waterDepth));
+	return -smin(-caustics, -0.1, 0.15) * saturate(exp2(-rLOG2 * waterExtinction * waterDepth));
 }
 
-vec3 PercentageCloserFilter(in vec3 shadowScreenPos, in vec3 worldPos, in float dither, in float penumbraScale) {
+vec3 PercentageCloserFilter(in vec3 shadowScreenPos, in vec3 worldPos, in float dither, in float blockerDepth, in float sssAmount) {
 	const float rSteps = 1.0 / float(PCSS_FILTER_SAMPLES);
 
-	vec2 penumbraRadius = penumbraScale * diagonal2(shadowProjection);
+	vec2 penumbraRadius = blockerDepth * diagonal2(shadowProjection);
 
 	vec3 result = vec3(0.0);
 	vec2 waterData = vec2(0.0);
+    // float sssDepth = 0.0;
 
 	for (uint i = 0u; i < PCSS_FILTER_SAMPLES; ++i) {
 		vec2 offset = sampleVogelDisk(i, PCSS_FILTER_SAMPLES, dither) * penumbraRadius;
@@ -114,6 +91,7 @@ vec3 PercentageCloserFilter(in vec3 shadowScreenPos, in vec3 worldPos, in float 
 	#ifdef COLORED_SHADOWS
 		ivec2 sampleTexel = ivec2(sampleCoord * realShadowMapRes);
 		float sampleDepth0 = texelFetch(shadowtex0, sampleTexel, 0).x;
+        // sssDepth += saturate(shadowScreenPos.z - sampleDepth0);
 
 		if (step(shadowScreenPos.z, sampleDepth0) != sampleDepth1) {
 			float waterMask = texelFetch(shadowcolor1, sampleTexel, 0).w;
@@ -128,6 +106,7 @@ vec3 PercentageCloserFilter(in vec3 shadowScreenPos, in vec3 worldPos, in float 
 	}
 
 	result *= rSteps;
+	// sssDepth *= rSteps;
 
 	#ifdef WATER_CAUSTICS
 		if (waterData.y > EPS) {
@@ -139,7 +118,26 @@ vec3 PercentageCloserFilter(in vec3 shadowScreenPos, in vec3 worldPos, in float 
 		}
 	#endif
 
+	// result += exp2(32.0 * shadowProjectionInverse[2].z * sssDepth) * sssAmount;
+
 	return result;
+}
+
+vec3 CalculatePCSS(in vec3 worldPos, in vec3 normalOffset, in float dither, in float sssAmount) {
+	float distortionFactor;
+	vec3 shadowScreenPos = WorldToShadowScreenSpace(worldPos + normalOffset, distortionFactor);
+	shadowScreenPos.z -= 3e-8 * (1.0 + dither) * shadowProjectionInverse[1].y * distortionFactor;
+
+	dither *= TAU;
+
+	vec3 pcss = vec3(1.0);
+	if (saturate(shadowScreenPos) == shadowScreenPos) {
+		float blockerDepth = BlockerSearch(shadowScreenPos, dither, 0.25 * distortionFactor);
+		blockerDepth += sssAmount * SUBSURFACE_SCATTERING_RADIUS * (dither * 0.5 + 1.0);
+		pcss = PercentageCloserFilter(shadowScreenPos, worldPos, dither, blockerDepth * distortionFactor, sssAmount);
+	}
+
+	return pcss;
 }
 
 //================================================================================================//
